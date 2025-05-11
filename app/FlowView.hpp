@@ -4,6 +4,10 @@
 #include <memory>
 #include "model/Shape.hpp"
 #include "model/Rect.hpp"
+#include "model/Ellipse.hpp"
+#include <QDragEnterEvent>
+#include <QDropEvent>
+
 
 class FlowView : public QWidget
 {
@@ -12,7 +16,7 @@ public:
     explicit FlowView(QWidget* parent = nullptr);
 
     /* ---------- 工具模式 ---------- */
-    enum class ToolMode { None, DrawRect };
+    enum class ToolMode { None, DrawRect, DrawEllipse, DrawConnector };
     void setToolMode(ToolMode m) { mode_ = m; }
 
     /* ---------- 剪贴板 & 层次接口 ---------- */
@@ -33,6 +37,9 @@ protected:
     void mouseMoveEvent(QMouseEvent* e) override;
     void mouseReleaseEvent(QMouseEvent* e) override;
     void contextMenuEvent(QContextMenuEvent* e) override;
+    void dragEnterEvent(QDragEnterEvent* e) override;
+    void dropEvent(QDropEvent* e) override;
+
 
 private:
     ToolMode mode_ = ToolMode::None;

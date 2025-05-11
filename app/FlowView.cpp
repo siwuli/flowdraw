@@ -6,12 +6,15 @@
 #include <QJsonDocument>
 #include <QMenu>
 #include <algorithm> 
+#include <QMimeData>
+#include <QDrag>
 
 FlowView::FlowView(QWidget* parent)
     : QWidget(parent)
 {
     setMouseTracking(true);       // 启用鼠标移动事件
     setFocusPolicy(Qt::ClickFocus);
+    setAcceptDrops(true);
 }
 
 void FlowView::paintEvent(QPaintEvent*)
@@ -41,16 +44,18 @@ void FlowView::mousePressEvent(QMouseEvent* e)
     if (e->button() != Qt::LeftButton)
         return;
 
-    if (mode_ == ToolMode::DrawRect) {
-        // 新建矩形，暂时 size 为 0
-        auto rect = std::make_unique<Rect>();
-        rect->bounds.setTopLeft(e->pos());
-        rect->bounds.setBottomRight(e->pos());
-        shapes_.push_back(std::move(rect));
-        selectedIndex_ = static_cast<int>(shapes_.size()) - 1;
-        dragStart_ = e->pos();
+    if (mode_ == ToolMode::DrawRect && e->button() == Qt::LeftButton) {
+        auto r = std::make_unique<Rect>();
+        r->bounds.setTopLeft(e->pos());
+        r->bounds.setBottomRight(e->pos());
+        shapes_.push_back(std::move(r));
+        selectedIndex_ = shapes_.size() - 1;
+        dragStart_ = e->pos();  
     }
-    else {
+    else if (mode_ == ToolMode::DrawEllipse && e->button() == Qt::LeftButton) {
+        auto el = std::make_unique<Ellipse>();
+    }
+    else if (mode_ == ToolMode::None) {
         // Hit-test：从顶层往下找
         selectedIndex_ = -1;
         for (int i = static_cast<int>(shapes_.size()) - 1; i >= 0; --i) {
@@ -77,19 +82,19 @@ void FlowView::mouseMoveEvent(QMouseEvent* e)
             update();
         }
     }
-    else if (selectedIndex_ != -1) {
-        // 移动已选中的 shape
-        QPointF delta = e->pos() - dragStart_;
-        dragStart_ = e->pos();
-        shapes_[selectedIndex_]->bounds.translate(delta);
-        update();
+    else if (mode_ == ToolMode::DrawEllipse && selectedIndex_ != -1) {
+        auto* el = dynamic_cast<Ellipse*>(shapes_[selectedIndex_].get());
+        if (el) {
+            el->bounds.setBottomRight(e->pos());
+            update();
+        }
     }
 }
 
 void FlowView::mouseReleaseEvent(QMouseEvent*)
 {
     // 完成一次操作，若是在绘制矩形，则退出绘制模式
-    if (mode_ == ToolMode::DrawRect)
+    if (mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse)
         mode_ = ToolMode::None;
 }
 
@@ -116,9 +121,11 @@ void FlowView::pasteClipboard()
 
     QJsonObject obj = doc.object();
     std::unique_ptr<Shape> s;
+    
     if (obj["type"] == "rect")
-        s = std::make_unique<Rect>();
-    // 以后可扩展 ellipse 等
+         s = std::make_unique<Rect>();
+    else if (obj["type"] == "ellipse")
+         s = std::make_unique<Ellipse>();
 
     if (!s) return;
     s->fromJson(obj);
@@ -192,4 +199,31 @@ void FlowView::contextMenuEvent(QContextMenuEvent* e)
     menu.addAction(tr("Move Down"), this, &FlowView::moveDown);
 
     menu.exec(e->globalPos());
+}
+
+//加入拖放事件函数
+void FlowView::dragEnterEvent(QDragEnterEvent* e)
+{
+    if (e->mimeData()->hasFormat("application/x-flow-shape"))
+        e->acceptProposedAction();
+}
+
+void FlowView::dropEvent(QDropEvent* e)
+{
+    QByteArray ba = e->mimeData()->data("application/x-flow-shape");
+    QString type = QString::fromUtf8(ba);
+
+    std::unique_ptr<Shape> s;
+    if (type == "rect")
+        s = std::make_unique<Rect>();
+    else if (type == "ellipse")
+        s = std::make_unique<Ellipse>();
+    if (!s) return;
+
+    QPointF pos = e->pos();
+    s->bounds = { pos.x() - 50, pos.y() - 30, 100, 60 };
+    shapes_.push_back(std::move(s));
+    update();
+
+    e->acceptProposedAction();
 }
