@@ -35,6 +35,7 @@ MainWindow::MainWindow(QWidget* parent)
     auto actEllipse = toolBar->addAction(tr("Ellipse"));
 
     connect(actRect, &QAction::triggered, this, [view] {
+        view->clearSelection();
         view->setToolMode(FlowView::ToolMode::DrawRect);
         });
 
@@ -80,6 +81,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     //给工具栏再加一个椭圆按钮
     connect(actEllipse, &QAction::triggered, this, [view] {
+        view->clearSelection();
         view->setToolMode(FlowView::ToolMode::DrawEllipse);
         });
 

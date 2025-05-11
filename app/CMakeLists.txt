@@ -21,5 +21,6 @@ find_package(Qt5 COMPONENTS Core Widgets Gui REQUIRED)
 file(GLOB_RECURSE CPP_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 file(GLOB_RECURSE HDR_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp")
 
+
 add_executable(${PROJECT_NAME} WIN32 ${CPP_FILES} ${HDR_FILES})
 target_link_libraries(${PROJECT_NAME} Qt5::Widgets Qt5::Gui Qt5::Core)

@@ -1,69 +1,92 @@
 #include "FlowView.hpp"
+
 #include <QPainter>
 #include <QMouseEvent>
-#include <QClipboard>
-#include <QGuiApplication>
-#include <QJsonDocument>
-#include <QMenu>
-#include <algorithm> 
+#include <QWheelEvent>
+#include <QDragEnterEvent>
 #include <QMimeData>
 #include <QDrag>
+#include <QJsonDocument>
+#include <QApplication>
+#include <QClipboard>
+#include <algorithm>
+#include <cmath>
+#include <QMenu>
 
+/* ===== 构造 ===== */
 FlowView::FlowView(QWidget* parent)
     : QWidget(parent)
 {
-    setMouseTracking(true);       // 启用鼠标移动事件
+    setMouseTracking(true);
     setFocusPolicy(Qt::ClickFocus);
     setAcceptDrops(true);
 }
 
+/* ======= 绘制 ======= */
 void FlowView::paintEvent(QPaintEvent*)
 {
-    QPainter painter(this);
+    QPainter p(this);
+    /* 背景 */
+    p.fillRect(rect(), QColor("#fdfdfd"));
 
-    /* === 背景底色 === */
-    painter.fillRect(rect(), QColor("#fdfdfd"));
+    /* 网格 */
+    const int step = 20;
+    p.setPen(QColor(220, 220, 220));
+    for (int x = 0; x < width(); x += step) p.drawLine(x, 0, x, height());
+    for (int y = 0; y < height(); y += step) p.drawLine(0, y, width(), y);
 
-    /* === 网格 === */
-    const int gridStep = 20;                  // 网格间距
-    painter.setPen(QColor(220, 220, 220));    // 浅灰色网格线
+    /* 连接线（先画，在线下层） */
+    for (const auto& c : connectors_) c.paint(p);
+    if (currentConn_.src) currentConn_.paint(p);
 
-    for (int x = 0; x < width(); x += gridStep)
-        painter.drawLine(x, 0, x, height());
-
-    for (int y = 0; y < height(); y += gridStep)
-        painter.drawLine(0, y, width(), y);
-
-    for (size_t i = 0; i < shapes_.size(); ++i)
-        shapes_[i]->paint(painter, static_cast<int>(i) == selectedIndex_);
+    /* 图形 */
+    for (int i = 0; i < shapes_.size(); ++i)
+        shapes_[i]->paint(p, i == selectedIndex_);
 }
 
-/* ---------- 鼠标事件 ---------- */
+/* ======= 鼠标事件 ======= */
 void FlowView::mousePressEvent(QMouseEvent* e)
 {
-    if (e->button() != Qt::LeftButton)
-        return;
+    if (e->button() != Qt::LeftButton) return;
 
-    if (mode_ == ToolMode::DrawRect && e->button() == Qt::LeftButton) {
+    /* --- 1. 新建矩形 / 椭圆 --- */
+    if (mode_ == ToolMode::DrawRect) {
         auto r = std::make_unique<Rect>();
         r->bounds.setTopLeft(e->pos());
         r->bounds.setBottomRight(e->pos());
         shapes_.push_back(std::move(r));
-        selectedIndex_ = shapes_.size() - 1;
-        dragStart_ = e->pos();  
+        selectedIndex_ = int(shapes_.size()) - 1;
+        dragStart_ = e->pos();
+        return;
     }
-    else if (mode_ == ToolMode::DrawEllipse && e->button() == Qt::LeftButton) {
+    if (mode_ == ToolMode::DrawEllipse) {
         auto el = std::make_unique<Ellipse>();
+        el->bounds.setTopLeft(e->pos());
+        el->bounds.setBottomRight(e->pos());
+        shapes_.push_back(std::move(el));
+        selectedIndex_ = int(shapes_.size()) - 1;
+        dragStart_ = e->pos();
+        return;
     }
-    else if (mode_ == ToolMode::None) {
-        // Hit-test：从顶层往下找
-        selectedIndex_ = -1;
-        for (int i = static_cast<int>(shapes_.size()) - 1; i >= 0; --i) {
+
+    /* --- 2. 新建连接线 (起点) --- */
+    if (mode_ == ToolMode::DrawConnector) {
+        for (int i = shapes_.size() - 1; i >= 0; --i) {
             if (shapes_[i]->hitTest(e->pos())) {
-                selectedIndex_ = i;
-                dragStart_ = e->pos();
-                break;
+                currentConn_.src = shapes_[i].get();
+                currentConn_.tempEnd = e->pos();
+                return;
             }
+        }
+    }
+
+    /* --- 3. 普通选中 --- */
+    selectedIndex_ = -1;
+    for (int i = shapes_.size() - 1; i >= 0; --i) {
+        if (shapes_[i]->hitTest(e->pos())) {
+            selectedIndex_ = i;
+            dragStart_ = e->pos();
+            break;
         }
     }
     update();
@@ -71,137 +94,63 @@ void FlowView::mousePressEvent(QMouseEvent* e)
 
 void FlowView::mouseMoveEvent(QMouseEvent* e)
 {
-    if (!(e->buttons() & Qt::LeftButton))
+    /* --- 动态调整新矩形/椭圆大小 --- */
+    if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse) &&
+        selectedIndex_ != -1)
+    {
+        shapes_[selectedIndex_]->bounds.setBottomRight(e->pos());
+        update();
         return;
-
-    if (mode_ == ToolMode::DrawRect && selectedIndex_ != -1) {
-        // 动态调整新矩形大小
-        auto* r = dynamic_cast<Rect*>(shapes_[selectedIndex_].get());
-        if (r) {
-            r->bounds.setBottomRight(e->pos());
-            update();
-        }
     }
-    else if (mode_ == ToolMode::DrawEllipse && selectedIndex_ != -1) {
-        auto* el = dynamic_cast<Ellipse*>(shapes_[selectedIndex_].get());
-        if (el) {
-            el->bounds.setBottomRight(e->pos());
-            update();
-        }
+
+    /* --- 连接线实时更新 --- */
+    if (mode_ == ToolMode::DrawConnector && currentConn_.src) {
+        currentConn_.tempEnd = e->pos();
+        update();
+        return;
+    }
+
+    /* --- 移动选中图形 --- */
+    if (mode_ == ToolMode::None &&
+        selectedIndex_ != -1 &&
+        (e->buttons() & Qt::LeftButton))
+    {
+        QPointF d = e->pos() - dragStart_;
+        dragStart_ = e->pos();
+        shapes_[selectedIndex_]->bounds.translate(d);
+        update();
     }
 }
 
-void FlowView::mouseReleaseEvent(QMouseEvent*)
+void FlowView::mouseReleaseEvent(QMouseEvent* e)
 {
-    // 完成一次操作，若是在绘制矩形，则退出绘制模式
-    if (mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse)
+    Q_UNUSED(e)
+
+        /* 完成 DrawRect / DrawEllipse */
+        if (mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse) {
+            mode_ = ToolMode::None;
+            return;
+        }
+
+    /* 完成连接线 (寻找终点) */
+    if (mode_ == ToolMode::DrawConnector && currentConn_.src) {
+        for (int i = shapes_.size() - 1; i >= 0; --i) {
+            if (shapes_[i]->hitTest(e->pos()) &&
+                shapes_[i].get() != currentConn_.src)
+            {
+                currentConn_.dst = shapes_[i].get();
+                break;
+            }
+        }
+        if (currentConn_.dst)
+            connectors_.push_back(currentConn_);
+        currentConn_ = Connector{};
         mode_ = ToolMode::None;
+        update();
+    }
 }
 
-//实现示例（复制 / 粘贴）
-void FlowView::copySelection()
-{
-    if (selectedIndex_ == -1) return;
-    QJsonObject obj = shapes_[selectedIndex_]->toJson();
-    QJsonDocument doc(obj);
-    QGuiApplication::clipboard()->setText(doc.toJson());
-}
-
-void FlowView::cutSelection()
-{
-    copySelection();
-    deleteSelection();
-}
-
-void FlowView::pasteClipboard()
-{
-    QString txt = QGuiApplication::clipboard()->text();
-    QJsonDocument doc = QJsonDocument::fromJson(txt.toUtf8());
-    if (!doc.isObject()) return;
-
-    QJsonObject obj = doc.object();
-    std::unique_ptr<Shape> s;
-    
-    if (obj["type"] == "rect")
-         s = std::make_unique<Rect>();
-    else if (obj["type"] == "ellipse")
-         s = std::make_unique<Ellipse>();
-
-    if (!s) return;
-    s->fromJson(obj);
-
-    // 轻微偏移避免重叠
-    s->bounds.translate(10, 10);
-
-    shapes_.push_back(std::move(s));
-    selectedIndex_ = static_cast<int>(shapes_.size()) - 1;
-    update();
-}
-
-//删除 & Z-order
-void FlowView::deleteSelection()
-{
-    if (selectedIndex_ == -1) return;
-    shapes_.erase(shapes_.begin() + selectedIndex_);
-    selectedIndex_ = -1;
-    update();
-}
-
-void FlowView::bringToFront()
-{
-    if (selectedIndex_ == -1) return;
-    auto sel = std::move(shapes_[selectedIndex_]);
-    shapes_.erase(shapes_.begin() + selectedIndex_);
-    shapes_.push_back(std::move(sel));
-    selectedIndex_ = static_cast<int>(shapes_.size()) - 1;
-    update();
-}
-
-void FlowView::sendToBack()
-{
-    if (selectedIndex_ == -1) return;
-    auto sel = std::move(shapes_[selectedIndex_]);
-    shapes_.erase(shapes_.begin() + selectedIndex_);
-    shapes_.insert(shapes_.begin(), std::move(sel));
-    selectedIndex_ = 0;
-    update();
-}
-
-void FlowView::moveUp()
-{
-    if (selectedIndex_ < 0 || selectedIndex_ + 1 >= shapes_.size()) return;
-    std::swap(shapes_[selectedIndex_], shapes_[selectedIndex_ + 1]);
-    ++selectedIndex_;
-    update();
-}
-
-void FlowView::moveDown()
-{
-    if (selectedIndex_ <= 0) return;
-    std::swap(shapes_[selectedIndex_], shapes_[selectedIndex_ - 1]);
-    --selectedIndex_;
-    update();
-}
-
-//右键上下文菜单
-void FlowView::contextMenuEvent(QContextMenuEvent* e)
-{
-    QMenu menu(this);
-    menu.addAction(tr("Copy"), this, &FlowView::copySelection);
-    menu.addAction(tr("Cut"), this, &FlowView::cutSelection);
-    menu.addAction(tr("Paste"), this, &FlowView::pasteClipboard);
-    menu.addSeparator();
-    menu.addAction(tr("Delete"), this, &FlowView::deleteSelection);
-    menu.addSeparator();
-    menu.addAction(tr("Bring to Front"), this, &FlowView::bringToFront);
-    menu.addAction(tr("Send to Back"), this, &FlowView::sendToBack);
-    menu.addAction(tr("Move Up"), this, &FlowView::moveUp);
-    menu.addAction(tr("Move Down"), this, &FlowView::moveDown);
-
-    menu.exec(e->globalPos());
-}
-
-//加入拖放事件函数
+/* ======= 拖放 ======= */
 void FlowView::dragEnterEvent(QDragEnterEvent* e)
 {
     if (e->mimeData()->hasFormat("application/x-flow-shape"))
@@ -214,16 +163,126 @@ void FlowView::dropEvent(QDropEvent* e)
     QString type = QString::fromUtf8(ba);
 
     std::unique_ptr<Shape> s;
-    if (type == "rect")
-        s = std::make_unique<Rect>();
-    else if (type == "ellipse")
-        s = std::make_unique<Ellipse>();
+    if (type == "rect")    s = std::make_unique<Rect>();
+    else if (type == "ellipse") s = std::make_unique<Ellipse>();
     if (!s) return;
 
     QPointF pos = e->pos();
-    s->bounds = { pos.x() - 50, pos.y() - 30, 100, 60 };
+    s->bounds = { pos.x() - 50,pos.y() - 30,100,60 };
     shapes_.push_back(std::move(s));
     update();
-
     e->acceptProposedAction();
+}
+
+/* ======= 右键菜单 ======= */
+void FlowView::contextMenuEvent(QContextMenuEvent* e)
+{
+    // 先进行 hit-test，把右键点击处设为当前选中
+    selectedIndex_ = -1;
+    for (int i = shapes_.size() - 1; i >= 0; --i) {
+        if (shapes_[i]->hitTest(e->pos())) {
+            selectedIndex_ = i;
+            break;
+        }
+    }
+    update();
+
+    QMenu menu(this);
+
+    auto actCopy = menu.addAction(tr("Copy\tCtrl+C"), this, &FlowView::copySelection);
+    auto actCut = menu.addAction(tr("Cut\tCtrl+X"), this, &FlowView::cutSelection);
+    auto actPaste = menu.addAction(tr("Paste\tCtrl+V"), this, &FlowView::pasteClipboard);
+    menu.addSeparator();
+    auto actDel = menu.addAction(tr("Delete\tDel"), this, &FlowView::deleteSelection);
+    menu.addSeparator();
+    menu.addAction(tr("Bring to Front\tCtrl+]"), this, &FlowView::bringToFront);
+    menu.addAction(tr("Send to Back\tCtrl+["), this, &FlowView::sendToBack);
+    menu.addAction(tr("Move Up\tCtrl+up"), this, &FlowView::moveUp);
+    menu.addAction(tr("Move Down\tCtrl+down"), this, &FlowView::moveDown);
+
+    // 根据是否有选中来启用/禁用
+    bool hasSel = selectedIndex_ != -1;
+    actCopy->setEnabled(hasSel);
+    actCut->setEnabled(hasSel);
+    actDel->setEnabled(hasSel);
+
+    menu.exec(e->globalPos());
+}
+
+
+/* ======= 剪贴板函数 ======= */
+void FlowView::copySelection()
+{
+    if (selectedIndex_ == -1) return;
+    QJsonDocument doc(shapes_[selectedIndex_]->toJson());
+    QApplication::clipboard()->setText(doc.toJson());
+}
+
+void FlowView::cutSelection()
+{
+    copySelection();
+    deleteSelection();
+}
+
+void FlowView::pasteClipboard()
+{
+    QJsonDocument doc = QJsonDocument::fromJson(
+        QApplication::clipboard()->text().toUtf8());
+    if (!doc.isObject()) return;
+    auto obj = doc.object();
+
+    std::unique_ptr<Shape> s;
+    QString type = obj["type"].toString();
+    if (type == "rect")    s = std::make_unique<Rect>();
+    else if (type == "ellipse") s = std::make_unique<Ellipse>();
+    if (!s) return;
+    s->fromJson(obj);
+    s->bounds.translate(10, 10);       // 轻微偏移
+    shapes_.push_back(std::move(s));
+    update();
+}
+
+void FlowView::deleteSelection()
+{
+    if (selectedIndex_ == -1) return;
+    shapes_.erase(shapes_.begin() + selectedIndex_);
+    selectedIndex_ = -1;
+    update();
+}
+
+/* ======= Z-Order ======= */
+void FlowView::bringToFront()
+{
+    if (selectedIndex_ == -1) return;
+    auto tmp = std::move(shapes_[selectedIndex_]);
+    shapes_.erase(shapes_.begin() + selectedIndex_);
+    shapes_.push_back(std::move(tmp));
+    selectedIndex_ = shapes_.size() - 1;
+    update();
+}
+
+void FlowView::sendToBack()
+{
+    if (selectedIndex_ == -1) return;
+    auto tmp = std::move(shapes_[selectedIndex_]);
+    shapes_.erase(shapes_.begin() + selectedIndex_);
+    shapes_.insert(shapes_.begin(), std::move(tmp));
+    selectedIndex_ = 0;
+    update();
+}
+
+void FlowView::moveUp()
+{
+    if (selectedIndex_ == -1 || selectedIndex_ + 1 >= shapes_.size()) return;
+    std::swap(shapes_[selectedIndex_], shapes_[selectedIndex_ + 1]);
+    ++selectedIndex_;
+    update();
+}
+
+void FlowView::moveDown()
+{
+    if (selectedIndex_ <= 0) return;
+    std::swap(shapes_[selectedIndex_], shapes_[selectedIndex_ - 1]);
+    --selectedIndex_;
+    update();
 }
