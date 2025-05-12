@@ -6,11 +6,12 @@
 
 static void setColorButton(QPushButton* btn, const QColor& c)
 {
-    QPalette pal = btn->palette();
-    pal.setColor(QPalette::Button, c.isValid() ? c : Qt::lightGray);
-    btn->setPalette(pal);
-    btn->update();
+    QString css = c.isValid()
+        ? QString("background:%1").arg(c.name())
+        : "background:lightgray";
+    btn->setStyleSheet(css);
 }
+
 
 PropertyPanel::PropertyPanel(QWidget* parent) : QWidget(parent)
 {

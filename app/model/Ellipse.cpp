@@ -28,16 +28,20 @@ bool Ellipse::hitTest(const QPointF& pt) const
 QJsonObject Ellipse::toJson() const
 {
     return QJsonObject{
-        {"type","ellipse"},
-        {"x",bounds.x()},
-        {"y",bounds.y()},
-        {"w",bounds.width()},
-        {"h",bounds.height()}
+        {"type","rect"},
+        {"x",bounds.x()}, {"y",bounds.y()},
+        {"w",bounds.width()}, {"h",bounds.height()},
+        {"fill",   fillColor.name(QColor::HexArgb)},      // ÑÕÉ«´ø alpha
+        {"stroke", strokeColor.name(QColor::HexArgb)},
+        {"width",  strokeWidth}
     };
 }
 
 void Ellipse::fromJson(const QJsonObject& o)
 {
     bounds = { o["x"].toDouble(), o["y"].toDouble(),
-              o["w"].toDouble(), o["h"].toDouble() };
+               o["w"].toDouble(), o["h"].toDouble() };
+    fillColor = QColor(o["fill"].toString("#ffffffff"));
+    strokeColor = QColor(o["stroke"].toString("#ff000000"));
+    strokeWidth = o["width"].toDouble(1.5);
 }

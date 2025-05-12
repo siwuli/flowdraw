@@ -25,19 +25,22 @@ bool Rect::hitTest(const QPointF& pt) const
 
 QJsonObject Rect::toJson() const
 {
-    QJsonObject obj;
-    obj["type"] = "rect";
-    obj["x"] = bounds.x();
-    obj["y"] = bounds.y();
-    obj["w"] = bounds.width();
-    obj["h"] = bounds.height();
-    return obj;
+    return QJsonObject{
+        {"type","rect"},
+        {"x",bounds.x()}, {"y",bounds.y()},
+        {"w",bounds.width()}, {"h",bounds.height()},
+        {"fill",   fillColor.name(QColor::HexArgb)},      // ÑÕÉ«´ø alpha
+        {"stroke", strokeColor.name(QColor::HexArgb)},
+        {"width",  strokeWidth}
+    };
 }
 
-void Rect::fromJson(const QJsonObject& obj)
+void Rect::fromJson(const QJsonObject& o)
 {
-    bounds = { obj["x"].toDouble(),
-              obj["y"].toDouble(),
-              obj["w"].toDouble(),
-              obj["h"].toDouble() };
+    bounds = { o["x"].toDouble(), o["y"].toDouble(),
+               o["w"].toDouble(), o["h"].toDouble() };
+    fillColor = QColor(o["fill"].toString("#ffffffff"));
+    strokeColor = QColor(o["stroke"].toString("#ff000000"));
+    strokeWidth = o["width"].toDouble(1.5);
 }
+
