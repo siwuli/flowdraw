@@ -7,13 +7,19 @@
 #include <QMimeData>
 #include <QDrag>
 #include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
 #include <QApplication>
 #include <QClipboard>
 #include <algorithm>
 #include <cmath>
 #include <QMenu>
+#include <QPainterPath>
+#include <QFile>
+#include <QSvgGenerator>
+#include "model/TextEditDialog.hpp"
 
-/* ===== ¹¹Ôì ===== */
+/* =====  ===== */
 FlowView::FlowView(QWidget* parent)
     : QWidget(parent)
 {
@@ -22,34 +28,36 @@ FlowView::FlowView(QWidget* parent)
     setAcceptDrops(true);
 }
 
-/* ======= »æÖÆ ======= */
+/* ======= ï¿½ï¿½ï¿½ï¿½ ======= */
 void FlowView::paintEvent(QPaintEvent*)
 {
     QPainter p(this);
-    /* ±³¾° */
-    p.fillRect(rect(), QColor("#fdfdfd"));
+    /* èƒŒæ™¯ */
+    p.fillRect(rect(), backgroundColor_);
 
-    /* Íø¸ñ */
-    const int step = 20;
-    p.setPen(QColor(220, 220, 220));
-    for (int x = 0; x < width(); x += step) p.drawLine(x, 0, x, height());
-    for (int y = 0; y < height(); y += step) p.drawLine(0, y, width(), y);
+    /* ç½‘æ ¼ */
+    if (showGrid_) {
+        const int step = 20;
+        p.setPen(QColor(220, 220, 220));
+        for (int x = 0; x < width(); x += step) p.drawLine(x, 0, x, height());
+        for (int y = 0; y < height(); y += step) p.drawLine(0, y, width(), y);
+    }
 
-    /* Á¬½ÓÏß£¨ÏÈ»­£¬ÔÚÏßÏÂ²ã£© */
+    /* è¿æ¥çº¿ï¼ˆå…ˆç”»è¿æ¥çº¿å†ç”»å›¾å½¢ï¼‰ */
     for (const auto& c : connectors_) c.paint(p);
     if (currentConn_.src) currentConn_.paint(p);
 
-    /* Í¼ĞÎ */
+    /* å›¾å½¢ */
     for (int i = 0; i < shapes_.size(); ++i)
         shapes_[i]->paint(p, i == selectedIndex_);
 }
 
-/* ======= Êó±êÊÂ¼ş ======= */
+/* ======= ï¿½ï¿½ï¿½ï¿½Â¼ï¿½ ======= */
 void FlowView::mousePressEvent(QMouseEvent* e)
 {
     if (e->button() != Qt::LeftButton) return;
 
-    /* --- 1. ĞÂ½¨¾ØĞÎ / ÍÖÔ² --- */
+    /* --- 1. æ–°å»ºçŸ©å½¢ / æ¤­åœ† --- */
     if (mode_ == ToolMode::DrawRect) {
         auto r = std::make_unique<Rect>();
         r->bounds.setTopLeft(e->pos());
@@ -69,19 +77,19 @@ void FlowView::mousePressEvent(QMouseEvent* e)
         return;
     }
 
-    /* --- 2. ĞÂ½¨Á¬½ÓÏß (Æğµã) --- */
+    /* --- 2. æ–°å»ºè¿æ¥çº¿ (èµ·ç‚¹) --- */
     if (mode_ == ToolMode::DrawConnector && e->button() == Qt::LeftButton) {
         for (int i = shapes_.size() - 1; i >= 0; --i) {
             if (shapes_[i]->hitTest(e->pos())) {
                 currentConn_.src = shapes_[i].get();
-                currentConn_.tempEnd = e->pos();   // ÏÈÁÙÊ±Ö¸ÏòÊó±ê
+                currentConn_.tempEnd = e->pos();   // temporary pointer position
                 update();
                 return;
             }
         }
     }
 
-    /* --- 3. ÆÕÍ¨Ñ¡ÖĞ --- */
+    /* --- 3. æ™®é€šé€‰æ‹© --- */
     selectedIndex_ = -1;
     for (int i = shapes_.size() - 1; i >= 0; --i) {
         if (shapes_[i]->hitTest(e->pos())) {
@@ -96,7 +104,7 @@ void FlowView::mousePressEvent(QMouseEvent* e)
         emit shapeAttr(s->fillColor, s->strokeColor, s->strokeWidth);
     }
     else {
-        emit shapeAttr({}, {}, -1);   // ÎŞÑ¡ÖĞ
+        emit shapeAttr({}, {}, -1);   // no selection
     }
 
     update();
@@ -104,7 +112,7 @@ void FlowView::mousePressEvent(QMouseEvent* e)
 
 void FlowView::mouseMoveEvent(QMouseEvent* e)
 {
-    /* --- ¶¯Ì¬µ÷ÕûĞÂ¾ØĞÎ/ÍÖÔ²´óĞ¡ --- */
+    /* --- ï¿½ï¿½Ì¬ï¿½ï¿½ï¿½ï¿½ï¿½Â¾ï¿½ï¿½ï¿½/ï¿½ï¿½Ô²ï¿½ï¿½Ğ¡ --- */
     if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse) &&
         selectedIndex_ != -1)
     {
@@ -113,14 +121,14 @@ void FlowView::mouseMoveEvent(QMouseEvent* e)
         return;
     }
 
-    /* --- Á¬½ÓÏßÊµÊ±¸üĞÂ --- */
+    /* --- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÊµÊ±ï¿½ï¿½ï¿½ï¿½ --- */
     if (mode_ == ToolMode::DrawConnector && currentConn_.src) {
         currentConn_.tempEnd = e->pos();
         update();
         return;
     }
 
-    /* --- ÒÆ¶¯Ñ¡ÖĞÍ¼ĞÎ --- */
+    /* --- ï¿½Æ¶ï¿½Ñ¡ï¿½ï¿½Í¼ï¿½ï¿½ --- */
     if (mode_ == ToolMode::None &&
         selectedIndex_ != -1 &&
         (e->buttons() & Qt::LeftButton))
@@ -128,7 +136,7 @@ void FlowView::mouseMoveEvent(QMouseEvent* e)
         QPointF d = e->pos() - dragStart_;
         dragStart_ = e->pos();
 
-        //ÔÚÒÆ¶¯Ñ¡ÖĞÍ¼ĞÎµÄÍ¬Ê±£¬ÖØĞÂ¼ÆËãËùÓĞÁ¬½ÓÏßÁ½¸ö¶ËµãµÄÃªµã×ø±ê¡£
+        //ï¿½ï¿½ï¿½Æ¶ï¿½Ñ¡ï¿½ï¿½Í¼ï¿½Îµï¿½Í¬Ê±ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ëµï¿½ï¿½Ãªï¿½ï¿½ï¿½ï¿½ï¿½ê¡£
         shapes_[selectedIndex_]->bounds.translate(d);
         updateConnectorsFor(shapes_[selectedIndex_].get());
         update();
@@ -139,13 +147,13 @@ void FlowView::mouseReleaseEvent(QMouseEvent* e)
 {
     Q_UNUSED(e)
 
-    /* Íê³É DrawRect / DrawEllipse */
+    /* ï¿½ï¿½ï¿½ DrawRect / DrawEllipse */
     if (mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse) {
         mode_ = ToolMode::None;
         return;
     }
 
-    /* Íê³ÉÁ¬½ÓÏß (Ñ°ÕÒÖÕµã) */
+    /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (Ñ°ï¿½ï¿½ï¿½Õµï¿½) */
     if (mode_ == ToolMode::DrawConnector && currentConn_.src) {
         for (int i = shapes_.size() - 1; i >= 0; --i) {
             if (shapes_[i]->hitTest(e->pos()) &&
@@ -164,7 +172,7 @@ void FlowView::mouseReleaseEvent(QMouseEvent* e)
     }
 }
 
-/* ======= ÍÏ·Å ======= */
+/* ======= ï¿½Ï·ï¿½ ======= */
 void FlowView::dragEnterEvent(QDragEnterEvent* e)
 {
     if (e->mimeData()->hasFormat("application/x-flow-shape"))
@@ -188,10 +196,10 @@ void FlowView::dropEvent(QDropEvent* e)
     e->acceptProposedAction();
 }
 
-/* ======= ÓÒ¼ü²Ëµ¥ ======= */
+/* ======= ï¿½Ò¼ï¿½ï¿½Ëµï¿½ ======= */
 void FlowView::contextMenuEvent(QContextMenuEvent* e)
 {
-    // ÏÈ½øĞĞ hit-test£¬°ÑÓÒ¼üµã»÷´¦ÉèÎªµ±Ç°Ñ¡ÖĞ
+    // ï¿½È½ï¿½ï¿½ï¿½ hit-testï¿½ï¿½ï¿½ï¿½ï¿½Ò¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½Ç°Ñ¡ï¿½ï¿½
     selectedIndex_ = -1;
     for (int i = shapes_.size() - 1; i >= 0; --i) {
         if (shapes_[i]->hitTest(e->pos())) {
@@ -214,7 +222,7 @@ void FlowView::contextMenuEvent(QContextMenuEvent* e)
     menu.addAction(tr("Move Up\tCtrl+up"), this, &FlowView::moveUp);
     menu.addAction(tr("Move Down\tCtrl+down"), this, &FlowView::moveDown);
 
-    // ¸ù¾İÊÇ·ñÓĞÑ¡ÖĞÀ´ÆôÓÃ/½ûÓÃ
+    // ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½
     bool hasSel = selectedIndex_ != -1;
     actCopy->setEnabled(hasSel);
     actCut->setEnabled(hasSel);
@@ -224,7 +232,7 @@ void FlowView::contextMenuEvent(QContextMenuEvent* e)
 }
 
 
-/* ======= ¼ôÌù°åº¯Êı ======= */
+/* ======= ï¿½ï¿½ï¿½ï¿½ï¿½åº¯ï¿½ï¿½ ======= */
 void FlowView::copySelection()
 {
     if (selectedIndex_ == -1) return;
@@ -251,7 +259,7 @@ void FlowView::pasteClipboard()
     else if (type == "ellipse") s = std::make_unique<Ellipse>();
     if (!s) return;
     s->fromJson(obj);
-    s->bounds.translate(10, 10);       // ÇáÎ¢Æ«ÒÆ
+    s->bounds.translate(10, 10);       // ï¿½ï¿½Î¢Æ«ï¿½ï¿½
     shapes_.push_back(std::move(s));
     update();
 }
@@ -303,14 +311,14 @@ void FlowView::moveDown()
 }
 
 
-//ÊµÏÖÈı¸ö setter slot
+//Êµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ setter slot
 void FlowView::setFill(const QColor& c)
 {
     if (selectedIndex_ == -1 || !c.isValid()) return;
     shapes_[selectedIndex_]->fillColor = c;
     update();
     
-    // ¡ï Á¢¼´°Ñ×îĞÂÊôĞÔ¹ã²¥¸øÃæ°å
+    // ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¹ã²¥ï¿½ï¿½ï¿½ï¿½ï¿½
     auto* s = shapes_[selectedIndex_].get();
     emit shapeAttr(s->fillColor, s->strokeColor, s->strokeWidth);
 }
@@ -320,7 +328,7 @@ void FlowView::setStroke(const QColor& c)
     shapes_[selectedIndex_]->strokeColor = c;
     update();
 
-    // ¡ï Á¢¼´°Ñ×îĞÂÊôĞÔ¹ã²¥¸øÃæ°å
+    // ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¹ã²¥ï¿½ï¿½ï¿½ï¿½ï¿½
     auto* s = shapes_[selectedIndex_].get();
     emit shapeAttr(s->fillColor, s->strokeColor, s->strokeWidth);
 }
@@ -330,7 +338,7 @@ void FlowView::setWidth(qreal w)
     shapes_[selectedIndex_]->strokeWidth = w;
     update();
 
-    // ¡ï Á¢¼´°Ñ×îĞÂÊôĞÔ¹ã²¥¸øÃæ°å
+    // ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¹ã²¥ï¿½ï¿½ï¿½ï¿½ï¿½
     auto* s = shapes_[selectedIndex_].get();
     emit shapeAttr(s->fillColor, s->strokeColor, s->strokeWidth);
 }
@@ -340,7 +348,280 @@ void FlowView::updateConnectorsFor(Shape* movedShape)
 {
     for (auto& c : connectors_) {
         if (c.src == movedShape || c.dst == movedShape) {
-            // Ö»Ğè´¥·¢ÖØ»æ¼´¿É£¬ÕæÕı×ø±êÔÚ paint() Ê±ÖØĞÂ¼ÆËã
+            // Ö»ï¿½è´¥ï¿½ï¿½ï¿½Ø»æ¼´ï¿½É£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ paint() Ê±ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½
         }
     }
+}
+
+void FlowView::mouseDoubleClickEvent(QMouseEvent* e)
+{
+    if (e->button() == Qt::LeftButton) {
+        // æ£€æŸ¥æ˜¯å¦ç‚¹å‡»äº†æŸä¸ªå½¢çŠ¶
+        for (int i = shapes_.size() - 1; i >= 0; --i) {
+            if (shapes_[i]->hitTest(e->pos())) {
+                selectedIndex_ = i;
+                // æ‰“å¼€æ–‡æœ¬ç¼–è¾‘å¯¹è¯æ¡†
+                TextEditDialog dialog(this, shapes_[i]->text);
+                if (dialog.exec() == QDialog::Accepted) {
+                    shapes_[i]->text = dialog.getText();
+                    update();
+                }
+                break;
+            }
+        }
+    }
+}
+
+// æ·»åŠ æ–‡æœ¬é¢œè‰²è®¾ç½®
+void FlowView::setTextColor(const QColor& c)
+{
+    if (selectedIndex_ == -1 || !c.isValid()) return;
+    shapes_[selectedIndex_]->textColor = c;
+    update();
+}
+
+// æ·»åŠ æ–‡æœ¬å¤§å°è®¾ç½®
+void FlowView::setTextSize(int size)
+{
+    if (selectedIndex_ == -1 || size <= 0) return;
+    shapes_[selectedIndex_]->textSize = size;
+    update();
+}
+
+// æ·»åŠ æ–‡æœ¬å†…å®¹è®¾ç½®
+void FlowView::setText(const QString& text)
+{
+    if (selectedIndex_ == -1) return;
+    shapes_[selectedIndex_]->text = text;
+    update();
+}
+
+/* ---------- æ–‡ä»¶æ“ä½œ ---------- */
+
+bool FlowView::saveToFile(const QString& filename)
+{
+    QJsonObject root;
+    
+    // ä¿å­˜é¡µé¢å±æ€§
+    QJsonObject pageObj;
+    pageObj["backgroundColor"] = backgroundColor_.name(QColor::HexArgb);
+    pageObj["width"] = pageSize_.width();
+    pageObj["height"] = pageSize_.height();
+    pageObj["showGrid"] = showGrid_;
+    root["page"] = pageObj;
+    
+    // ä¿å­˜æ‰€æœ‰å›¾å½¢
+    QJsonArray shapesArray;
+    for (const auto& shape : shapes_) {
+        shapesArray.append(shape->toJson());
+    }
+    root["shapes"] = shapesArray;
+    
+    // ä¿å­˜æ‰€æœ‰è¿æ¥çº¿
+    QJsonArray connArray;
+    for (const auto& conn : connectors_) {
+        // éœ€è¦æ‰¾åˆ°è¿æ¥çº¿çš„æºå’Œç›®æ ‡åœ¨shapesä¸­çš„ç´¢å¼•
+        int srcIdx = -1, dstIdx = -1;
+        for (size_t i = 0; i < shapes_.size(); ++i) {
+            if (shapes_[i].get() == conn.src) srcIdx = i;
+            if (shapes_[i].get() == conn.dst) dstIdx = i;
+        }
+        
+        if (srcIdx >= 0 && dstIdx >= 0) {
+            QJsonObject connObj;
+            connObj["src"] = srcIdx;
+            connObj["dst"] = dstIdx;
+            connObj["color"] = conn.color.name(QColor::HexArgb);
+            connObj["width"] = conn.width;
+            connArray.append(connObj);
+        }
+    }
+    root["connectors"] = connArray;
+    
+    // å†™å…¥æ–‡ä»¶
+    QFile file(filename);
+    if (!file.open(QIODevice::WriteOnly)) {
+        return false;
+    }
+    
+    QJsonDocument doc(root);
+    file.write(doc.toJson());
+    return true;
+}
+
+bool FlowView::loadFromFile(const QString& filename)
+{
+    QFile file(filename);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return false;
+    }
+    
+    QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    if (!doc.isObject()) {
+        return false;
+    }
+    
+    // æ¸…ç©ºå½“å‰æ•°æ®
+    clearAll();
+    
+    QJsonObject root = doc.object();
+    
+    // åŠ è½½é¡µé¢å±æ€§
+    if (root.contains("page") && root["page"].isObject()) {
+        QJsonObject pageObj = root["page"].toObject();
+        backgroundColor_ = QColor(pageObj["backgroundColor"].toString("#fdfdfd"));
+        pageSize_ = QSize(
+            pageObj["width"].toInt(2000),
+            pageObj["height"].toInt(2000)
+        );
+        showGrid_ = pageObj["showGrid"].toBool(true);
+    }
+    
+    // åŠ è½½å›¾å½¢
+    if (root.contains("shapes") && root["shapes"].isArray()) {
+        QJsonArray shapesArray = root["shapes"].toArray();
+        for (const QJsonValue& val : shapesArray) {
+            if (!val.isObject()) continue;
+            
+            QJsonObject shapeObj = val.toObject();
+            QString type = shapeObj["type"].toString();
+            
+            std::unique_ptr<Shape> shape;
+            if (type == "rect") {
+                shape = std::make_unique<Rect>();
+            } else if (type == "ellipse") {
+                shape = std::make_unique<Ellipse>();
+            }
+            
+            if (shape) {
+                shape->fromJson(shapeObj);
+                shapes_.push_back(std::move(shape));
+            }
+        }
+    }
+    
+    // åŠ è½½è¿æ¥çº¿
+    if (root.contains("connectors") && root["connectors"].isArray()) {
+        QJsonArray connArray = root["connectors"].toArray();
+        for (const QJsonValue& val : connArray) {
+            if (!val.isObject()) continue;
+            
+            QJsonObject connObj = val.toObject();
+            int srcIdx = connObj["src"].toInt(-1);
+            int dstIdx = connObj["dst"].toInt(-1);
+            
+            if (srcIdx >= 0 && srcIdx < shapes_.size() &&
+                dstIdx >= 0 && dstIdx < shapes_.size()) {
+                Connector conn;
+                conn.src = shapes_[srcIdx].get();
+                conn.dst = shapes_[dstIdx].get();
+                conn.color = QColor(connObj["color"].toString("#ff000000"));
+                conn.width = connObj["width"].toDouble(1.0);
+                connectors_.push_back(conn);
+            }
+        }
+    }
+    
+    update();
+    return true;
+}
+
+bool FlowView::exportToPng(const QString& filename)
+{
+    QImage image(pageSize_, QImage::Format_ARGB32);
+    image.fill(backgroundColor_);
+    
+    QPainter painter(&image);
+    painter.setRenderHint(QPainter::Antialiasing);
+    
+    // ç»˜åˆ¶ç½‘æ ¼
+    if (showGrid_) {
+        const int step = 20;
+        painter.setPen(QColor(220, 220, 220));
+        for (int x = 0; x < pageSize_.width(); x += step) 
+            painter.drawLine(x, 0, x, pageSize_.height());
+        for (int y = 0; y < pageSize_.height(); y += step) 
+            painter.drawLine(0, y, pageSize_.width(), y);
+    }
+    
+    // ç»˜åˆ¶è¿æ¥çº¿
+    for (const auto& c : connectors_) 
+        c.paint(painter);
+    
+    // ç»˜åˆ¶å›¾å½¢
+    for (const auto& shape : shapes_) 
+        shape->paint(painter, false);
+    
+    return image.save(filename, "PNG");
+}
+
+bool FlowView::exportToSvg(const QString& filename)
+{
+    QSvgGenerator generator;
+    generator.setFileName(filename);
+    generator.setSize(pageSize_);
+    generator.setViewBox(QRect(0, 0, pageSize_.width(), pageSize_.height()));
+    generator.setTitle("FlowDraw Diagram");
+    generator.setDescription("Created with FlowDraw");
+    
+    QPainter painter;
+    painter.begin(&generator);
+    painter.setRenderHint(QPainter::Antialiasing);
+    
+    // èƒŒæ™¯
+    painter.fillRect(QRect(0, 0, pageSize_.width(), pageSize_.height()), backgroundColor_);
+    
+    // ç»˜åˆ¶ç½‘æ ¼
+    if (showGrid_) {
+        const int step = 20;
+        painter.setPen(QColor(220, 220, 220));
+        for (int x = 0; x < pageSize_.width(); x += step) 
+            painter.drawLine(x, 0, x, pageSize_.height());
+        for (int y = 0; y < pageSize_.height(); y += step) 
+            painter.drawLine(0, y, pageSize_.width(), y);
+    }
+    
+    // ç»˜åˆ¶è¿æ¥çº¿
+    for (const auto& c : connectors_) 
+        c.paint(painter);
+    
+    // ç»˜åˆ¶å›¾å½¢
+    for (const auto& shape : shapes_) 
+        shape->paint(painter, false);
+    
+    painter.end();
+    return true;
+}
+
+void FlowView::clearAll()
+{
+    shapes_.clear();
+    connectors_.clear();
+    selectedIndex_ = -1;
+    currentConn_ = Connector{};
+    update();
+}
+
+/* ---------- é¡µé¢è®¾ç½® ---------- */
+
+void FlowView::setBackgroundColor(const QColor& color)
+{
+    if (color.isValid()) {
+        backgroundColor_ = color;
+        update();
+    }
+}
+
+void FlowView::setPageSize(int width, int height)
+{
+    if (width > 0 && height > 0) {
+        pageSize_ = QSize(width, height);
+        update();
+    }
+}
+
+void FlowView::setGridVisible(bool visible)
+{
+    showGrid_ = visible;
+    update();
 }

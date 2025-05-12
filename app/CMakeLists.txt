@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-# project 名 = 目录名，保持一致即可
+# project 锟斤拷 = 目录锟斤拷锟斤拷锟斤拷锟斤拷一锟铰硷拷锟斤拷
 get_filename_component(CURRENT_DIR_PATH "${CMAKE_CURRENT_LIST_DIR}" ABSOLUTE)
 get_filename_component(CURRENT_DIR_NAME "${CURRENT_DIR_PATH}" NAME)
 project(${CURRENT_DIR_NAME})
@@ -16,11 +16,12 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt5 COMPONENTS Core Widgets Gui REQUIRED)
+# 娣诲姞SVG妯″潡鏀寔
+find_package(Qt5 COMPONENTS Core Widgets Gui Svg REQUIRED)
 
 file(GLOB_RECURSE CPP_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 file(GLOB_RECURSE HDR_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp")
 
 
 add_executable(${PROJECT_NAME} WIN32 ${CPP_FILES} ${HDR_FILES})
-target_link_libraries(${PROJECT_NAME} Qt5::Widgets Qt5::Gui Qt5::Core)
+target_link_libraries(${PROJECT_NAME} Qt5::Widgets Qt5::Gui Qt5::Core Qt5::Svg)

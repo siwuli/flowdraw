@@ -4,6 +4,8 @@
 
 class QSpinBox;
 class QPushButton;
+class QLineEdit;
+class QFontComboBox;
 
 class PropertyPanel : public QWidget
 {
@@ -11,16 +13,25 @@ class PropertyPanel : public QWidget
 public:
     explicit PropertyPanel(QWidget* parent = nullptr);
 
-    // FlowView µ÷ÓÃ£º°Ñµ±Ç°Ñ¡ÖĞÍ¼ĞÎÊôĞÔ¹àÈëÃæ°å
+    // åŠ è½½å½“å‰é€‰ä¸­å›¾å½¢çš„å±æ€§åˆ°é¢æ¿
     void load(const QColor& fill, const QColor& stroke, qreal width);
+    
+    // åŠ è½½æ–‡æœ¬å±æ€§
+    void loadText(const QString& text, const QColor& textColor, int fontSize);
 
 signals:
     void fillChanged(const QColor&);
     void strokeChanged(const QColor&);
     void widthChanged(qreal);
+    void textChanged(const QString&);
+    void textColorChanged(const QColor&);
+    void textSizeChanged(int);
 
 private:
     QPushButton* btnFill_;
     QPushButton* btnStroke_;
     QSpinBox* spinWidth_;
+    
+    QPushButton* btnTextColor_;
+    QSpinBox* spinTextSize_;
 };

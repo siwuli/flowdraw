@@ -2,25 +2,42 @@
 #include <QPainter>
 #include <QRectF>
 #include <QJsonObject>
+#include <QString>
 
-/* ³éÏó»ùÀà£ºËùÓĞ¿É»æÖÆÔªËØµÄ¹«¹²½Ó¿Ú */
+/* åŸºç±»ï¼šæ‰€æœ‰å¯ç»˜åˆ¶å…ƒç´ çš„å…¬å…±æ¥å£ */
 class Shape
 {
 public:
 
     virtual ~Shape() = default;
 
-    // »æÖÆ×ÔÉí
+    // ç»˜åˆ¶å‡½æ•°
     virtual void paint(QPainter& p, bool selected) const = 0;
-    // ÃüÖĞ²âÊÔ£ºÅĞ¶Ï pt ÊÇ·ñÂäÔÚĞÎ×´ÄÚ
+    // ç¢°æ’æµ‹è¯•ï¼Œåˆ¤æ–­ pt æ˜¯å¦åœ¨å½¢çŠ¶å†…
     virtual bool hitTest(const QPointF& pt) const = 0;
    
-    // Ôö¼ÓĞéº¯Êı
+    // åºåˆ—åŒ–å‡½æ•°
     virtual QJsonObject toJson() const = 0;
     virtual void fromJson(const QJsonObject&) = 0;
 
-    QRectF bounds;   // °üÎ§ºĞ£¬ÓÃÓÚÒÆ¶¯ÓëĞòÁĞ»¯
+    QRectF bounds;   // å¤–å›´æ¡†ï¼Œç”¨äºç§»åŠ¨å’Œé€‰ä¸­
     QColor  fillColor = Qt::white;   
     QColor  strokeColor = Qt::black;   
     qreal   strokeWidth = 1.5;
+    
+    // æ·»åŠ æ–‡æœ¬ç›¸å…³å±æ€§
+    QString text;
+    QColor textColor = Qt::black;
+    int textSize = 10;
+    
+    // ç»˜åˆ¶æ–‡æœ¬çš„è¾…åŠ©å‡½æ•°
+    void drawText(QPainter& p) const {
+        if (!text.isEmpty()) {
+            QFont font;
+            font.setPointSize(textSize);
+            p.setFont(font);
+            p.setPen(textColor);
+            p.drawText(bounds, Qt::AlignCenter, text);
+        }
+    }
 };

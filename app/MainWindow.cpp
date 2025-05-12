@@ -9,6 +9,10 @@
 #include <QShortcut>
 #include <QMimeData>
 #include <QDrag>
+#include <QColorDialog>
+#include <QInputDialog>
+#include <QFileDialog>
+#include <QMessageBox>
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -22,13 +26,97 @@ MainWindow::MainWindow(QWidget* parent)
 
     /* ---------- Menu ---------- */
     auto fileMenu = menuBar()->addMenu(tr("File"));
-    fileMenu->addAction(tr("New"));
-    fileMenu->addAction(tr("Open"));
-    fileMenu->addAction(tr("Save"));
+    fileMenu->addAction(tr("New"), this, [this, view]() {
+        view->clearAll();
+    });
+    
+    fileMenu->addAction(tr("Open"), this, [this, view]() {
+        QString filename = QFileDialog::getOpenFileName(
+            this, tr("Open Flowchart"), QString(), 
+            tr("Flowchart Files (*.flow);;All Files (*.*)"));
+        if (!filename.isEmpty()) {
+            if (!view->loadFromFile(filename)) {
+                QMessageBox::warning(this, tr("Error"), tr("Cannot open file"));
+            }
+        }
+    });
+    
+    fileMenu->addAction(tr("Save"), this, [this, view]() {
+        QString filename = QFileDialog::getSaveFileName(
+            this, tr("Save Flowchart"), QString(), 
+            tr("Flowchart Files (*.flow)"));
+        if (!filename.isEmpty()) {
+            if (!view->saveToFile(filename)) {
+                QMessageBox::warning(this, tr("Error"), tr("Cannot save file"));
+            }
+        }
+    });
+    
+    fileMenu->addSeparator();
+    fileMenu->addAction(tr("Export PNG"), this, [this, view]() {
+        QString filename = QFileDialog::getSaveFileName(
+            this, tr("Export as PNG"), QString(), 
+            tr("PNG Images (*.png)"));
+        if (!filename.isEmpty()) {
+            if (!view->exportToPng(filename)) {
+                QMessageBox::warning(this, tr("Error"), tr("Cannot export PNG"));
+            }
+        }
+    });
+    
+    fileMenu->addAction(tr("Export SVG"), this, [this, view]() {
+        QString filename = QFileDialog::getSaveFileName(
+            this, tr("Export as SVG"), QString(), 
+            tr("SVG Images (*.svg)"));
+        if (!filename.isEmpty()) {
+            if (!view->exportToSvg(filename)) {
+                QMessageBox::warning(this, tr("Error"), tr("Cannot export SVG"));
+            }
+        }
+    });
 
     auto editMenu = menuBar()->addMenu(tr("Edit"));
     editMenu->addAction(tr("Undo"));
     editMenu->addAction(tr("Redo"));
+    editMenu->addSeparator();
+    editMenu->addAction(tr("Copy"), view, &FlowView::copySelection);
+    editMenu->addAction(tr("Cut"), view, &FlowView::cutSelection);
+    editMenu->addAction(tr("Paste"), view, &FlowView::pasteClipboard);
+    editMenu->addAction(tr("Delete"), view, &FlowView::deleteSelection);
+    
+    auto arrangeMenu = menuBar()->addMenu(tr("Arrange"));
+    arrangeMenu->addAction(tr("Bring to Front"), view, &FlowView::bringToFront);
+    arrangeMenu->addAction(tr("Send to Back"), view, &FlowView::sendToBack);
+    arrangeMenu->addAction(tr("Move Up"), view, &FlowView::moveUp);
+    arrangeMenu->addAction(tr("Move Down"), view, &FlowView::moveDown);
+    
+    auto pageMenu = menuBar()->addMenu(tr("Page"));
+    pageMenu->addAction(tr("Background Color"), this, [this, view]() {
+        QColor color = QColorDialog::getColor(
+            view->backgroundColor(), this, tr("Select Background Color"));
+        if (color.isValid()) {
+            view->setBackgroundColor(color);
+        }
+    });
+    
+    pageMenu->addAction(tr("Page Size"), this, [this, view]() {
+        bool ok;
+        int width = QInputDialog::getInt(this, tr("Set Page Width"),
+                                       tr("Width (pixels):"), 
+                                       view->pageSize().width(), 500, 5000, 100, &ok);
+        if (!ok) return;
+        
+        int height = QInputDialog::getInt(this, tr("Set Page Height"),
+                                       tr("Height (pixels):"), 
+                                       view->pageSize().height(), 500, 5000, 100, &ok);
+        if (ok) {
+            view->setPageSize(width, height);
+        }
+    });
+    
+    pageMenu->addAction(tr("Show Grid"), this, [view](bool checked) {
+        view->setGridVisible(checked);
+    })->setCheckable(true);
 
     /* ---------- Toolbar ---------- */
     auto toolBar = addToolBar(tr("Tools"));
@@ -54,7 +142,7 @@ MainWindow::MainWindow(QWidget* parent)
 
 
     /* ---------- Palette Dock ---------- */
-    auto paletteDock = new QDockWidget(tr("Palette"), this);
+    auto paletteDock = new QDockWidget(tr("Component Library"), this);
     paletteDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 
     auto* palette = new QListWidget(paletteDock);
@@ -97,7 +185,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     
     /* ---------- Property Dock ---------- */
-    auto propDock = new QDockWidget(tr("Property"), this);
+    auto propDock = new QDockWidget(tr("Properties"), this);
     auto propPanel = new PropertyPanel(propDock);
     propDock->setWidget(propPanel);
     addDockWidget(Qt::RightDockWidgetArea, propDock);
@@ -112,6 +200,12 @@ MainWindow::MainWindow(QWidget* parent)
         view, &FlowView::setStroke);
     connect(propPanel, &PropertyPanel::widthChanged,
         view, &FlowView::setWidth);
+    
+    // 文本属性绑定
+    connect(propPanel, &PropertyPanel::textColorChanged,
+        view, &FlowView::setTextColor);
+    connect(propPanel, &PropertyPanel::textSizeChanged,
+        view, &FlowView::setTextSize);
 
 
 

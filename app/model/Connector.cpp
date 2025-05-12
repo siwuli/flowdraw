@@ -31,8 +31,8 @@ void Connector::drawArrow(QPainter& p, const QPointF& from, const QPointF& to) c
         std::cos(angle - M_PI / 3) * arrowSize);
 
     QPolygonF head;
-    head << to << p1 << p2;        // ÒÀ´ÎÑ¹Èë¶¥µã
-    p.setBrush(Qt::black);
+    head << to << p1 << p2;        // ç®­å¤´åŽ‹å…¥é¡¶ç‚¹
+    p.setBrush(color);
     p.drawPolygon(head);
 }
 
@@ -43,7 +43,7 @@ void Connector::paint(QPainter& p) const
     QPointF p1 = anchorPoint(src, tempEnd);
     QPointF p2 = dst ? anchorPoint(dst, p1) : tempEnd;
 
-    p.setPen(QPen(Qt::black, 1.5));
+    p.setPen(QPen(color, width));
     p.drawLine(p1, p2);
     drawArrow(p, p1, p2);
 }

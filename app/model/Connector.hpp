@@ -2,13 +2,17 @@
 #include <QPainter>
 #include "Shape.hpp"
 
-/* ¼òµ¥Ö±ÏßÁ¬½ÓÆ÷£¨Æğµã¡¢ÖÕµã·Ö±ğÖ¸ÏòÍ¼ĞÎ£© */
+/* ç”¨ç›´çº¿è¿æ¥ä¸¤ä¸ªç«¯ç‚¹ã€èµ·ç‚¹ç›´æŒ‡å‘å›¾å½¢ï¼š */
 class Connector
 {
 public:
-    Shape* src = nullptr;   // ÆğµãÍ¼ĞÎ
-    Shape* dst = nullptr;   // ÖÕµãÍ¼ĞÎ
-    QPointF tempEnd;        // »æÖÆ¹ı³ÌÖĞµÄÁÙÊ±ÖÕµã
+    Shape* src = nullptr;   // èµ·ç‚¹å›¾å½¢
+    Shape* dst = nullptr;   // ç»ˆç‚¹å›¾å½¢
+    QPointF tempEnd;        // ç»˜åˆ¶è¿‡ç¨‹ä¸­çš„ä¸´æ—¶ç»ˆç‚¹
+    
+    // æ·»åŠ é¢œè‰²å’Œå®½åº¦å±æ€§
+    QColor color = Qt::black;   // è¿æ¥çº¿é¢œè‰²
+    qreal width = 1.5;          // è¿æ¥çº¿å®½åº¦
 
     void paint(QPainter& p) const;
 

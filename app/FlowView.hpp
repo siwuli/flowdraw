@@ -6,7 +6,7 @@
 #include "model/Shape.hpp"
 #include "model/Rect.hpp"
 #include "model/Ellipse.hpp"
-#include "model/Connector.hpp"     // ¢Ù Á¬½ÓÏßÀà
+#include "model/Connector.hpp"     // æ‰€æœ‰è¿æ¥çº¿
 
 class FlowView : public QWidget
 {
@@ -18,11 +18,33 @@ signals:
 public:
     explicit FlowView(QWidget* parent = nullptr);
 
-    /* ---------- ¹¤¾ßÄ£Ê½ ---------- */
+    /* ---------- å·¥å…·æ¨¡å¼ ---------- */
     enum class ToolMode { None, DrawRect, DrawEllipse, DrawConnector };
     void setToolMode(ToolMode m) { mode_ = m; }
 
-    /* ---------- ¼ôÌù°å / Z-Order ½Ó¿Ú ---------- */
+    /* ---------- æ–‡ä»¶æ“ä½œ ---------- */
+public:
+    // ä¿å­˜å½“å‰ç»˜å›¾åˆ°æ–‡ä»¶
+    bool saveToFile(const QString& filename);
+    // ä»æ–‡ä»¶åŠ è½½ç»˜å›¾
+    bool loadFromFile(const QString& filename);
+    // å¯¼å‡ºä¸ºPNGå›¾ç‰‡
+    bool exportToPng(const QString& filename);
+    // å¯¼å‡ºä¸ºSVG
+    bool exportToSvg(const QString& filename);
+    // æ¸…ç©ºå½“å‰æ‰€æœ‰å†…å®¹
+    void clearAll();
+    
+    /* ---------- é¡µé¢è®¾ç½® ---------- */
+    void setBackgroundColor(const QColor& color);
+    void setPageSize(int width, int height);
+    void setGridVisible(bool visible);
+    
+    QColor backgroundColor() const { return backgroundColor_; }
+    QSize pageSize() const { return pageSize_; }
+    bool isGridVisible() const { return showGrid_; }
+
+    /* ---------- ç¼–è¾‘å™¨ / Z-Order æ¥å£ ---------- */
 public slots:
     void copySelection();
     void cutSelection();
@@ -32,6 +54,11 @@ public slots:
     void setFill(const QColor& c);
     void setStroke(const QColor& c);
     void setWidth(qreal w);
+    
+    // æ–‡æœ¬å±æ€§è®¾ç½®
+    void setTextColor(const QColor& c);
+    void setTextSize(int size);
+    void setText(const QString& text);
 
     void updateConnectorsFor(Shape* movedShape);
 
@@ -44,24 +71,30 @@ public slots:
 
 
 protected:
-    /* ---------- Qt ÊÂ¼ş ---------- */
+    /* ---------- Qt äº‹ä»¶ ---------- */
     void paintEvent(QPaintEvent*) override;
     void mousePressEvent(QMouseEvent*) override;
     void mouseMoveEvent(QMouseEvent*) override;
     void mouseReleaseEvent(QMouseEvent*) override;
+    void mouseDoubleClickEvent(QMouseEvent*) override;
 
     void dragEnterEvent(QDragEnterEvent*) override;
     void dropEvent(QDropEvent*) override;
     void contextMenuEvent(QContextMenuEvent*) override;
 
 private:
-    /* ---------- Êı¾İ³ÉÔ± ---------- */
+    /* ---------- æ•°æ®æˆå‘˜ ---------- */
     ToolMode mode_ = ToolMode::None;
 
-    std::vector<std::unique_ptr<Shape>> shapes_; // ¢Ú ËùÓĞÍ¼ĞÎ
-    std::vector<Connector> connectors_;          // ¢Û ËùÓĞÁ¬Ïß
-    Connector currentConn_;                      // ¢Ü ÕıÔÚ»æÖÆµÄÁÙÊ±Á¬Ïß
+    std::vector<std::unique_ptr<Shape>> shapes_; // æ‰€æœ‰å›¾å½¢å…ƒç´ 
+    std::vector<Connector> connectors_;          // æ‰€æœ‰è¿æ¥çº¿
+    Connector currentConn_;                      // å½“å‰æ­£åœ¨ç»˜åˆ¶çš„ä¸´æ—¶è¿æ¥çº¿
 
     int     selectedIndex_ = -1;
     QPointF dragStart_;
+    
+    // é¡µé¢è®¾ç½®
+    QColor backgroundColor_ = QColor("#fdfdfd");  // èƒŒæ™¯é¢œè‰²
+    QSize pageSize_ = QSize(2000, 2000);          // é¡µé¢å¤§å°
+    bool showGrid_ = true;                        // æ˜¯å¦æ˜¾ç¤ºç½‘æ ¼
 };

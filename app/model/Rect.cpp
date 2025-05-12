@@ -2,13 +2,16 @@
 
 void Rect::paint(QPainter& p, bool selected) const
 {
-    // 填充
+    // 缁樺埗鐭╁舰
     QPen pen(strokeColor, strokeWidth);
     p.setPen(pen);
     p.setBrush(fillColor);
     p.drawRect(bounds);
+    
+    // 缁樺埗鏂囨湰
+    drawText(p);
 
-    // 如果被选中，加虚线高亮
+    // 濡傛灉琚�変腑锛岀粯鍒惰櫄绾挎
     if (selected) {
         QPen dashPen(Qt::DashLine);
         dashPen.setColor(Qt::blue);
@@ -29,9 +32,12 @@ QJsonObject Rect::toJson() const
         {"type","rect"},
         {"x",bounds.x()}, {"y",bounds.y()},
         {"w",bounds.width()}, {"h",bounds.height()},
-        {"fill",   fillColor.name(QColor::HexArgb)},      // 颜色带 alpha
+        {"fill",   fillColor.name(QColor::HexArgb)},
         {"stroke", strokeColor.name(QColor::HexArgb)},
-        {"width",  strokeWidth}
+        {"width",  strokeWidth},
+        {"text", text},
+        {"textColor", textColor.name(QColor::HexArgb)},
+        {"textSize", textSize}
     };
 }
 
@@ -42,5 +48,8 @@ void Rect::fromJson(const QJsonObject& o)
     fillColor = QColor(o["fill"].toString("#ffffffff"));
     strokeColor = QColor(o["stroke"].toString("#ff000000"));
     strokeWidth = o["width"].toDouble(1.5);
+    text = o["text"].toString();
+    textColor = QColor(o["textColor"].toString("#ff000000"));
+    textSize = o["textSize"].toInt(10);
 }
 
