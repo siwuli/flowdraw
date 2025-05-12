@@ -117,12 +117,28 @@ MainWindow::MainWindow(QWidget* parent)
     pageMenu->addAction(tr("Show Grid"), this, [view](bool checked) {
         view->setGridVisible(checked);
     })->setCheckable(true);
+    
+    // 添加视图菜单
+    auto viewMenu = menuBar()->addMenu(tr("View"));
+    viewMenu->addAction(tr("Zoom In\tCtrl++"), view, &FlowView::zoomIn);
+    viewMenu->addAction(tr("Zoom Out\tCtrl+-"), view, &FlowView::zoomOut);
+    viewMenu->addAction(tr("Reset Zoom\tCtrl+0"), view, &FlowView::resetZoom);
+    viewMenu->addAction(tr("Fit to Window\tCtrl+F"), view, &FlowView::fitToWindow);
 
     /* ---------- Toolbar ---------- */
     auto toolBar = addToolBar(tr("Tools"));
     auto actRect = toolBar->addAction(tr("Rectangle"));
     auto actEllipse = toolBar->addAction(tr("Ellipse"));
     auto actLine = toolBar->addAction(tr("Connector"));
+    
+    // 添加分隔符
+    toolBar->addSeparator();
+    
+    // 添加视图控制工具按钮
+    auto actZoomIn = toolBar->addAction(tr("Zoom In"));
+    auto actZoomOut = toolBar->addAction(tr("Zoom Out"));
+    auto actResetZoom = toolBar->addAction(tr("Reset Zoom"));
+    auto actFitWindow = toolBar->addAction(tr("Fit to Window"));
 
     connect(actRect, &QAction::triggered, this, [view] {
         view->clearSelection();
@@ -140,6 +156,11 @@ MainWindow::MainWindow(QWidget* parent)
         view->setToolMode(FlowView::ToolMode::DrawConnector);
         });
 
+    // 连接视图控制按钮
+    connect(actZoomIn, &QAction::triggered, view, &FlowView::zoomIn);
+    connect(actZoomOut, &QAction::triggered, view, &FlowView::zoomOut);
+    connect(actResetZoom, &QAction::triggered, view, &FlowView::resetZoom);
+    connect(actFitWindow, &QAction::triggered, view, &FlowView::fitToWindow);
 
     /* ---------- Palette Dock ---------- */
     auto paletteDock = new QDockWidget(tr("Component Library"), this);
@@ -219,6 +240,12 @@ MainWindow::MainWindow(QWidget* parent)
     new QShortcut(QKeySequence("Ctrl+["), view, SLOT(sendToBack()));
     new QShortcut(QKeySequence("Ctrl+Up"), view, SLOT(moveUp()));
     new QShortcut(QKeySequence("Ctrl+Down"), view, SLOT(moveDown()));
-
+    
+    // 添加视图控制快捷键
+    new QShortcut(QKeySequence("Ctrl+="), view, SLOT(zoomIn()));
+    new QShortcut(QKeySequence("Ctrl++"), view, SLOT(zoomIn()));
+    new QShortcut(QKeySequence("Ctrl+-"), view, SLOT(zoomOut()));
+    new QShortcut(QKeySequence("Ctrl+0"), view, SLOT(resetZoom()));
+    new QShortcut(QKeySequence("Ctrl+F"), view, SLOT(fitToWindow()));
 }
 

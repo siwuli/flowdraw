@@ -32,15 +32,38 @@ FlowView::FlowView(QWidget* parent)
 void FlowView::paintEvent(QPaintEvent*)
 {
     QPainter p(this);
-    /* 背景 */
-    p.fillRect(rect(), backgroundColor_);
+    
+    // 填充窗口背景
+    p.fillRect(rect(), QColor("#f0f0f0")); // 灰色的窗口背景
+    
+    // 绘制页面边界和背景
+    drawPageBorder(p);
+    
+    // 创建剪裁区，只在页面内绘制
+    QRectF pageRect = QRectF(docToView(QPointF(0, 0)), 
+                             docToView(QPointF(pageSize_.width(), pageSize_.height())));
+    p.setClipRect(pageRect);
+    
+    // 应用视图变换
+    p.save();
+    p.translate(viewOffset_);
+    p.scale(scale_, scale_);
 
     /* 网格 */
     if (showGrid_) {
         const int step = 20;
         p.setPen(QColor(220, 220, 220));
-        for (int x = 0; x < width(); x += step) p.drawLine(x, 0, x, height());
-        for (int y = 0; y < height(); y += step) p.drawLine(0, y, width(), y);
+        
+        // 计算网格的起始和结束位置
+        int startX = 0;
+        int startY = 0;
+        int endX = pageSize_.width();
+        int endY = pageSize_.height();
+        
+        for (int x = startX; x <= endX; x += step) 
+            p.drawLine(x, startY, x, endY);
+        for (int y = startY; y <= endY; y += step) 
+            p.drawLine(startX, y, endX, y);
     }
 
     /* 连接线（先画连接线再画图形） */
@@ -50,51 +73,87 @@ void FlowView::paintEvent(QPaintEvent*)
     /* 图形 */
     for (int i = 0; i < shapes_.size(); ++i)
         shapes_[i]->paint(p, i == selectedIndex_);
+    
+    /* 如果有选中的元素，绘制调整大小的控制柄 */
+    if (selectedIndex_ >= 0 && selectedIndex_ < shapes_.size()) {
+        drawResizeHandles(p, shapes_[selectedIndex_]->bounds);
+    }
+        
+    p.restore();
 }
 
-/* ======= ����¼� ======= */
+/* ======= ¼ ======= */
 void FlowView::mousePressEvent(QMouseEvent* e)
 {
+    setFocus(); // 获取焦点，以便接收键盘事件
+    
+    if (isPanning_) {
+        if (e->button() == Qt::LeftButton) {
+            setCursor(Qt::ClosedHandCursor);
+            lastPanPoint_ = e->pos();
+            e->accept();
+            return;
+        }
+    }
+
+    // 将视图坐标转换为文档坐标
+    QPointF docPos = viewToDoc(e->pos());
+    
+    // 检查点击位置是否在页面内
+    if (docPos.x() < 0 || docPos.y() < 0 || 
+        docPos.x() > pageSize_.width() || docPos.y() > pageSize_.height()) {
+        return;
+    }
+
     if (e->button() != Qt::LeftButton) return;
 
     /* --- 1. 新建矩形 / 椭圆 --- */
     if (mode_ == ToolMode::DrawRect) {
         auto r = std::make_unique<Rect>();
-        r->bounds.setTopLeft(e->pos());
-        r->bounds.setBottomRight(e->pos());
+        r->bounds.setTopLeft(docPos);
+        r->bounds.setBottomRight(docPos);
         shapes_.push_back(std::move(r));
         selectedIndex_ = int(shapes_.size()) - 1;
-        dragStart_ = e->pos();
+        dragStart_ = docPos;
         return;
     }
     if (mode_ == ToolMode::DrawEllipse) {
         auto el = std::make_unique<Ellipse>();
-        el->bounds.setTopLeft(e->pos());
-        el->bounds.setBottomRight(e->pos());
+        el->bounds.setTopLeft(docPos);
+        el->bounds.setBottomRight(docPos);
         shapes_.push_back(std::move(el));
         selectedIndex_ = int(shapes_.size()) - 1;
-        dragStart_ = e->pos();
+        dragStart_ = docPos;
         return;
     }
 
     /* --- 2. 新建连接线 (起点) --- */
     if (mode_ == ToolMode::DrawConnector && e->button() == Qt::LeftButton) {
         for (int i = shapes_.size() - 1; i >= 0; --i) {
-            if (shapes_[i]->hitTest(e->pos())) {
+            if (shapes_[i]->hitTest(docPos)) {
                 currentConn_.src = shapes_[i].get();
-                currentConn_.tempEnd = e->pos();   // temporary pointer position
+                currentConn_.tempEnd = docPos;   // temporary pointer position
                 update();
                 return;
             }
         }
     }
 
-    /* --- 3. 普通选择 --- */
+    /* --- 3. 检查是否点击了调整柄 --- */
+    if (selectedIndex_ != -1 && mode_ == ToolMode::None) {
+        resizeHandle_ = hitTestResizeHandles(docPos, shapes_[selectedIndex_]->bounds);
+        if (resizeHandle_ != ResizeHandle::None) {
+            dragStart_ = docPos;
+            return;
+        }
+    }
+
+    /* --- 4. 普通选择 --- */
     selectedIndex_ = -1;
     for (int i = shapes_.size() - 1; i >= 0; --i) {
-        if (shapes_[i]->hitTest(e->pos())) {
+        if (shapes_[i]->hitTest(docPos)) {
             selectedIndex_ = i;
-            dragStart_ = e->pos();
+            dragStart_ = docPos;
             break;
         }
     }
@@ -107,72 +166,144 @@ void FlowView::mousePressEvent(QMouseEvent* e)
         emit shapeAttr({}, {}, -1);   // no selection
     }
 
+    resizeHandle_ = ResizeHandle::None;
     update();
 }
 
 void FlowView::mouseMoveEvent(QMouseEvent* e)
 {
-    /* --- ��̬�����¾���/��Բ��С --- */
+    if (isPanning_ && (e->buttons() & Qt::LeftButton)) {
+        // 平移视图
+        viewOffset_ += e->pos() - lastPanPoint_;
+        lastPanPoint_ = e->pos();
+        update();
+        return;
+    }
+    
+    // 将视图坐标转换为文档坐标
+    QPointF docPos = viewToDoc(e->pos());
+
+    /* --- 调整矩形/椭圆大小（通过拖拽角度和边缘） --- */
+    if (selectedIndex_ != -1 && resizeHandle_ != ResizeHandle::None &&
+        (e->buttons() & Qt::LeftButton))
+    {
+        QPointF offset = docPos - dragStart_;
+        dragStart_ = docPos;
+        
+        resizeRect(shapes_[selectedIndex_]->bounds, resizeHandle_, offset);
+        updateConnectorsFor(shapes_[selectedIndex_].get());
+        update();
+        return;
+    }
+
+    /* --- 调整矩形/椭圆大小 --- */
     if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse) &&
         selectedIndex_ != -1)
     {
-        shapes_[selectedIndex_]->bounds.setBottomRight(e->pos());
+        shapes_[selectedIndex_]->bounds.setBottomRight(docPos);
         update();
         return;
     }
 
-    /* --- ������ʵʱ���� --- */
+    /* --- 实时连接线 --- */
     if (mode_ == ToolMode::DrawConnector && currentConn_.src) {
-        currentConn_.tempEnd = e->pos();
+        currentConn_.tempEnd = docPos;
         update();
         return;
     }
 
-    /* --- �ƶ�ѡ��ͼ�� --- */
+    /* --- 移动选中图形 --- */
     if (mode_ == ToolMode::None &&
         selectedIndex_ != -1 &&
+        resizeHandle_ == ResizeHandle::None &&
         (e->buttons() & Qt::LeftButton))
     {
-        QPointF d = e->pos() - dragStart_;
-        dragStart_ = e->pos();
+        QPointF d = docPos - dragStart_;
+        dragStart_ = docPos;
 
-        //���ƶ�ѡ��ͼ�ε�ͬʱ�����¼������������������˵��ê�����ꡣ
+        // 移动选中图形的同时更新连接线的锚点
         shapes_[selectedIndex_]->bounds.translate(d);
         updateConnectorsFor(shapes_[selectedIndex_].get());
         update();
+    }
+    
+    // 更新鼠标指针样式 - 根据调整柄位置显示不同光标
+    if (selectedIndex_ != -1 && mode_ == ToolMode::None) {
+        ResizeHandle handle = hitTestResizeHandles(docPos, shapes_[selectedIndex_]->bounds);
+        switch (handle) {
+            case ResizeHandle::TopLeft:
+            case ResizeHandle::BottomRight:
+                setCursor(Qt::SizeFDiagCursor);
+                break;
+            case ResizeHandle::TopRight:
+            case ResizeHandle::BottomLeft:
+                setCursor(Qt::SizeBDiagCursor);
+                break;
+            case ResizeHandle::TopCenter:
+            case ResizeHandle::BottomCenter:
+                setCursor(Qt::SizeVerCursor);
+                break;
+            case ResizeHandle::MiddleLeft:
+            case ResizeHandle::MiddleRight:
+                setCursor(Qt::SizeHorCursor);
+                break;
+            default:
+                setCursor(Qt::ArrowCursor);
+                break;
+        }
+    } else {
+        setCursor(Qt::ArrowCursor);
     }
 }
 
 void FlowView::mouseReleaseEvent(QMouseEvent* e)
 {
-    Q_UNUSED(e)
-
-    /* ��� DrawRect / DrawEllipse */
-    if (mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse) {
-        mode_ = ToolMode::None;
+    if (isPanning_) {
+        setCursor(Qt::OpenHandCursor);
+        e->accept();
         return;
     }
+    
+    // 将视图坐标转换为文档坐标
+    QPointF docPos = viewToDoc(e->pos());
 
-    /* ��������� (Ѱ���յ�) */
-    if (mode_ == ToolMode::DrawConnector && currentConn_.src) {
-        for (int i = shapes_.size() - 1; i >= 0; --i) {
-            if (shapes_[i]->hitTest(e->pos()) &&
-                shapes_[i].get() != currentConn_.src)
-            {
-                currentConn_.dst = shapes_[i].get();
-                break;
+    /* --- 完成矩形/椭圆绘制 --- */
+    if (mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse) {
+        // 确保图形有一定的大小
+        if (shapes_.size() > 0 && selectedIndex_ >= 0) {
+            QRectF bounds = shapes_[selectedIndex_]->bounds;
+            if (bounds.width() < 5 || bounds.height() < 5) {
+                // 如果图形太小，删除它
+                shapes_.erase(shapes_.begin() + selectedIndex_);
             }
         }
-        if (currentConn_.dst)
-            connectors_.push_back(currentConn_);
-        currentConn_ = Connector{};
         mode_ = ToolMode::None;
         update();
         return;
     }
+
+    /* --- 结束连接线 --- */
+    if (mode_ == ToolMode::DrawConnector && currentConn_.src) {
+        for (int i = shapes_.size() - 1; i >= 0; --i) {
+            if (shapes_[i]->hitTest(docPos) && shapes_[i].get() != currentConn_.src) {
+                currentConn_.dst = shapes_[i].get();
+                connectors_.push_back(currentConn_);
+                break;
+            }
+        }
+        currentConn_.src = currentConn_.dst = nullptr;
+        mode_ = ToolMode::None;
+        update();
+    }
+    
+    // 重置调整大小的状态
+    if (resizeHandle_ != ResizeHandle::None) {
+        resizeHandle_ = ResizeHandle::None;
+        setCursor(Qt::ArrowCursor);
+    }
 }
 
-/* ======= �Ϸ� ======= */
+/* ======= 拖放 ======= */
 void FlowView::dragEnterEvent(QDragEnterEvent* e)
 {
     if (e->mimeData()->hasFormat("application/x-flow-shape"))
@@ -189,20 +320,31 @@ void FlowView::dropEvent(QDropEvent* e)
     else if (type == "ellipse") s = std::make_unique<Ellipse>();
     if (!s) return;
 
-    QPointF pos = e->pos();
-    s->bounds = { pos.x() - 50,pos.y() - 30,100,60 };
+    // 将放置位置从视图坐标转换为文档坐标
+    QPointF docPos = viewToDoc(e->pos());
+    
+    // 检查放置位置是否在页面内
+    if (docPos.x() < 0 || docPos.y() < 0 || 
+        docPos.x() > pageSize_.width() || docPos.y() > pageSize_.height()) {
+        return;
+    }
+    
+    s->bounds = { docPos.x() - 50, docPos.y() - 30, 100, 60 };
     shapes_.push_back(std::move(s));
     update();
     e->acceptProposedAction();
 }
 
-/* ======= �Ҽ��˵� ======= */
+/* ======= 右键菜单 ======= */
 void FlowView::contextMenuEvent(QContextMenuEvent* e)
 {
-    // �Ƚ��� hit-test�����Ҽ��������Ϊ��ǰѡ��
+    // 将位置从视图坐标转换为文档坐标
+    QPointF docPos = viewToDoc(e->pos());
+    
+    // 先进行hit-test，如果右键点击到了图形，将其设为当前选中
     selectedIndex_ = -1;
     for (int i = shapes_.size() - 1; i >= 0; --i) {
-        if (shapes_[i]->hitTest(e->pos())) {
+        if (shapes_[i]->hitTest(docPos)) {
             selectedIndex_ = i;
             break;
         }
@@ -211,23 +353,35 @@ void FlowView::contextMenuEvent(QContextMenuEvent* e)
 
     QMenu menu(this);
 
-    auto actCopy = menu.addAction(tr("Copy\tCtrl+C"), this, &FlowView::copySelection);
-    auto actCut = menu.addAction(tr("Cut\tCtrl+X"), this, &FlowView::cutSelection);
-    auto actPaste = menu.addAction(tr("Paste\tCtrl+V"), this, &FlowView::pasteClipboard);
-    menu.addSeparator();
-    auto actDel = menu.addAction(tr("Delete\tDel"), this, &FlowView::deleteSelection);
-    menu.addSeparator();
-    menu.addAction(tr("Bring to Front\tCtrl+]"), this, &FlowView::bringToFront);
-    menu.addAction(tr("Send to Back\tCtrl+["), this, &FlowView::sendToBack);
-    menu.addAction(tr("Move Up\tCtrl+up"), this, &FlowView::moveUp);
-    menu.addAction(tr("Move Down\tCtrl+down"), this, &FlowView::moveDown);
+    // 如果在页面内右键，则显示图形操作菜单
+    if (docPos.x() >= 0 && docPos.y() >= 0 && 
+        docPos.x() <= pageSize_.width() && docPos.y() <= pageSize_.height()) {
+        
+        auto actCopy = menu.addAction(tr("Copy\tCtrl+C"), this, &FlowView::copySelection);
+        auto actCut = menu.addAction(tr("Cut\tCtrl+X"), this, &FlowView::cutSelection);
+        auto actPaste = menu.addAction(tr("Paste\tCtrl+V"), this, &FlowView::pasteClipboard);
+        menu.addSeparator();
+        auto actDel = menu.addAction(tr("Delete\tDel"), this, &FlowView::deleteSelection);
+        menu.addSeparator();
+        menu.addAction(tr("Bring to Front\tCtrl+]"), this, &FlowView::bringToFront);
+        menu.addAction(tr("Send to Back\tCtrl+["), this, &FlowView::sendToBack);
+        menu.addAction(tr("Move Up\tCtrl+up"), this, &FlowView::moveUp);
+        menu.addAction(tr("Move Down\tCtrl+down"), this, &FlowView::moveDown);
 
-    // �����Ƿ���ѡ��������/����
-    bool hasSel = selectedIndex_ != -1;
-    actCopy->setEnabled(hasSel);
-    actCut->setEnabled(hasSel);
-    actDel->setEnabled(hasSel);
-
+        // 控制是否有选中图形决定复制/粘贴的启用
+        bool hasSel = selectedIndex_ != -1;
+        actCopy->setEnabled(hasSel);
+        actCut->setEnabled(hasSel);
+        actDel->setEnabled(hasSel);
+    }
+    
+    // 添加视图控制菜单
+    menu.addSeparator();
+    menu.addAction(tr("Zoom In\tCtrl++"), this, &FlowView::zoomIn);
+    menu.addAction(tr("Zoom Out\tCtrl+-"), this, &FlowView::zoomOut);
+    menu.addAction(tr("Reset Zoom\tCtrl+0"), this, &FlowView::resetZoom);
+    menu.addAction(tr("Fit to Window\tCtrl+F"), this, &FlowView::fitToWindow);
+    
     menu.exec(e->globalPos());
 }
 
@@ -624,4 +778,317 @@ void FlowView::setGridVisible(bool visible)
 {
     showGrid_ = visible;
     update();
+}
+
+// 视图坐标到文档坐标的转换
+QPointF FlowView::viewToDoc(const QPointF& viewPoint) const
+{
+    return (viewPoint - viewOffset_) / scale_;
+}
+
+// 文档坐标到视图坐标的转换
+QPointF FlowView::docToView(const QPointF& docPoint) const
+{
+    return docPoint * scale_ + viewOffset_;
+}
+
+// 绘制页面边界
+void FlowView::drawPageBorder(QPainter& painter)
+{
+    QRectF pageRect = QRectF(docToView(QPointF(0, 0)), 
+                             docToView(QPointF(pageSize_.width(), pageSize_.height())));
+    
+    // 绘制页面阴影
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(QColor(0, 0, 0, 30));
+    painter.drawRect(pageRect.translated(5, 5));
+    
+    // 绘制页面边框
+    painter.setPen(QPen(Qt::gray, 1.0));
+    painter.setBrush(backgroundColor_);
+    painter.drawRect(pageRect);
+}
+
+// 鼠标滚轮事件处理
+void FlowView::wheelEvent(QWheelEvent* event)
+{
+    if (event->modifiers() & Qt::ControlModifier) {
+        // Ctrl+滚轮用于缩放
+        const qreal zoomFactor = 1.15;
+        if (event->angleDelta().y() > 0) {
+            // 放大
+            scale_ *= zoomFactor;
+        } else {
+            // 缩小
+            scale_ /= zoomFactor;
+        }
+        
+        // 限制缩放范围，防止过大或过小
+        scale_ = qBound(0.1, scale_, 5.0);
+        
+        // 更新视图
+        update();
+    } else {
+        // 普通滚轮用于垂直滚动，Shift+滚轮用于水平滚动
+        int dx = 0, dy = 0;
+        if (event->modifiers() & Qt::ShiftModifier) {
+            dx = -event->angleDelta().y();
+        } else {
+            dy = -event->angleDelta().y();
+        }
+        
+        viewOffset_ += QPointF(dx, dy) * 0.5;
+        update();
+    }
+    
+    event->accept();
+}
+
+// 键盘事件处理
+void FlowView::keyPressEvent(QKeyEvent* event)
+{
+    const int step = 20;
+    
+    switch (event->key()) {
+        case Qt::Key_Plus:
+        case Qt::Key_Equal:
+            if (event->modifiers() & Qt::ControlModifier) {
+                // Ctrl+加号 放大
+                zoomIn();
+                event->accept();
+                return;
+            }
+            break;
+            
+        case Qt::Key_Minus:
+            if (event->modifiers() & Qt::ControlModifier) {
+                // Ctrl+减号 缩小
+                zoomOut();
+                event->accept();
+                return;
+            }
+            break;
+            
+        case Qt::Key_0:
+            if (event->modifiers() & Qt::ControlModifier) {
+                // Ctrl+0 重置缩放
+                resetZoom();
+                event->accept();
+                return;
+            }
+            break;
+            
+        case Qt::Key_F:
+            if (event->modifiers() & Qt::ControlModifier) {
+                // Ctrl+F 适应窗口
+                fitToWindow();
+                event->accept();
+                return;
+            }
+            break;
+            
+        case Qt::Key_Left:
+            viewOffset_.rx() += step;
+            update();
+            event->accept();
+            return;
+            
+        case Qt::Key_Right:
+            viewOffset_.rx() -= step;
+            update();
+            event->accept();
+            return;
+            
+        case Qt::Key_Up:
+            viewOffset_.ry() += step;
+            update();
+            event->accept();
+            return;
+            
+        case Qt::Key_Down:
+            viewOffset_.ry() -= step;
+            update();
+            event->accept();
+            return;
+            
+        case Qt::Key_Space:
+            // 空格键是平移模式的开关
+            setCursor(isPanning_ ? Qt::ArrowCursor : Qt::OpenHandCursor);
+            isPanning_ = !isPanning_;
+            event->accept();
+            return;
+    }
+    
+    QWidget::keyPressEvent(event);
+}
+
+// 实现缩放相关方法
+void FlowView::zoomIn()
+{
+    scale_ *= 1.2;
+    scale_ = qBound(0.1, scale_, 5.0);
+    update();
+}
+
+void FlowView::zoomOut()
+{
+    scale_ /= 1.2;
+    scale_ = qBound(0.1, scale_, 5.0);
+    update();
+}
+
+void FlowView::resetZoom()
+{
+    scale_ = 1.0;
+    viewOffset_ = QPointF(0, 0);
+    update();
+}
+
+void FlowView::fitToWindow()
+{
+    // 计算合适的缩放比例和偏移量，使页面正好适合视图
+    qreal scaleX = width() / (pageSize_.width() + 40.0);
+    qreal scaleY = height() / (pageSize_.height() + 40.0);
+    scale_ = qMin(scaleX, scaleY);
+    
+    // 居中显示
+    viewOffset_ = QPointF((width() - pageSize_.width() * scale_) / 2,
+                         (height() - pageSize_.height() * scale_) / 2);
+    update();
+}
+
+// 绘制调整大小的控制柄
+void FlowView::drawResizeHandles(QPainter& painter, const QRectF& rect)
+{
+    const int handleSize = 8;
+    
+    // 保存原来的笔和画刷
+    QPen oldPen = painter.pen();
+    QBrush oldBrush = painter.brush();
+    
+    // 设置控制柄样式
+    painter.setPen(QPen(Qt::blue, 1));
+    painter.setBrush(Qt::white);
+    
+    // 定义8个控制点位置
+    QPointF handles[8] = {
+        rect.topLeft(),                                    // 左上
+        QPointF(rect.left() + rect.width()/2, rect.top()), // 上中
+        rect.topRight(),                                   // 右上
+        QPointF(rect.left(), rect.top() + rect.height()/2),// 左中
+        QPointF(rect.right(), rect.top() + rect.height()/2),// 右中
+        rect.bottomLeft(),                                 // 左下
+        QPointF(rect.left() + rect.width()/2, rect.bottom()),// 下中
+        rect.bottomRight()                                 // 右下
+    };
+    
+    // 绘制8个控制点
+    for (const QPointF& p : handles) {
+        painter.drawRect(QRectF(p.x() - handleSize/2, p.y() - handleSize/2, handleSize, handleSize));
+    }
+    
+    // 恢复原来的笔和画刷
+    painter.setPen(oldPen);
+    painter.setBrush(oldBrush);
+}
+
+// 检测点击在哪个调整柄上
+FlowView::ResizeHandle FlowView::hitTestResizeHandles(const QPointF& docPoint, const QRectF& rect)
+{
+    const int handleSize = 8;
+    
+    // 定义8个控制点及其对应的ResizeHandle
+    struct HandleInfo {
+        QPointF pos;
+        ResizeHandle handle;
+    };
+    
+    HandleInfo handles[8] = {
+        {rect.topLeft(), ResizeHandle::TopLeft},
+        {QPointF(rect.left() + rect.width()/2, rect.top()), ResizeHandle::TopCenter},
+        {rect.topRight(), ResizeHandle::TopRight},
+        {QPointF(rect.left(), rect.top() + rect.height()/2), ResizeHandle::MiddleLeft},
+        {QPointF(rect.right(), rect.top() + rect.height()/2), ResizeHandle::MiddleRight},
+        {rect.bottomLeft(), ResizeHandle::BottomLeft},
+        {QPointF(rect.left() + rect.width()/2, rect.bottom()), ResizeHandle::BottomCenter},
+        {rect.bottomRight(), ResizeHandle::BottomRight}
+    };
+    
+    // 检查点击是否在任何控制柄上
+    for (const HandleInfo& info : handles) {
+        QRectF handleRect(
+            info.pos.x() - handleSize/2,
+            info.pos.y() - handleSize/2,
+            handleSize,
+            handleSize
+        );
+        
+        if (handleRect.contains(docPoint)) {
+            return info.handle;
+        }
+    }
+    
+    return ResizeHandle::None;
+}
+
+// 调整矩形大小
+void FlowView::resizeRect(QRectF& rect, ResizeHandle handle, const QPointF& offset)
+{
+    QRectF newRect = rect;
+    
+    switch (handle) {
+        case ResizeHandle::TopLeft:
+            newRect.setTopLeft(rect.topLeft() + offset);
+            break;
+            
+        case ResizeHandle::TopCenter:
+            newRect.setTop(rect.top() + offset.y());
+            break;
+            
+        case ResizeHandle::TopRight:
+            newRect.setTopRight(rect.topRight() + offset);
+            break;
+            
+        case ResizeHandle::MiddleLeft:
+            newRect.setLeft(rect.left() + offset.x());
+            break;
+            
+        case ResizeHandle::MiddleRight:
+            newRect.setRight(rect.right() + offset.x());
+            break;
+            
+        case ResizeHandle::BottomLeft:
+            newRect.setBottomLeft(rect.bottomLeft() + offset);
+            break;
+            
+        case ResizeHandle::BottomCenter:
+            newRect.setBottom(rect.bottom() + offset.y());
+            break;
+            
+        case ResizeHandle::BottomRight:
+            newRect.setBottomRight(rect.bottomRight() + offset);
+            break;
+            
+        default:
+            return;
+    }
+    
+    // 确保矩形有最小尺寸并且宽高不为负数
+    if (newRect.width() < 10) {
+        if (newRect.left() != rect.left()) {
+            newRect.setLeft(newRect.right() - 10);
+        } else {
+            newRect.setRight(newRect.left() + 10);
+        }
+    }
+    
+    if (newRect.height() < 10) {
+        if (newRect.top() != rect.top()) {
+            newRect.setTop(newRect.bottom() - 10);
+        } else {
+            newRect.setBottom(newRect.top() + 10);
+        }
+    }
+    
+    rect = newRect;
 }
