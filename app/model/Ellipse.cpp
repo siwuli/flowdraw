@@ -3,8 +3,9 @@
 
 void Ellipse::paint(QPainter& p, bool selected) const
 {
-    p.setPen(Qt::black);
-    p.setBrush(Qt::white);
+    QPen pen(strokeColor, strokeWidth);
+    p.setPen(pen);
+    p.setBrush(fillColor);
     p.drawEllipse(bounds);
 
     if (selected) {

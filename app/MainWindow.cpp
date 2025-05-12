@@ -1,5 +1,6 @@
 ﻿#include "MainWindow.hpp"
 #include "FlowView.hpp"
+#include "PropertyPanel.hpp"
 #include <QMenuBar>
 #include <QToolBar>
 #include <QShortcut> 
@@ -84,6 +85,25 @@ MainWindow::MainWindow(QWidget* parent)
         view->clearSelection();
         view->setToolMode(FlowView::ToolMode::DrawEllipse);
         });
+
+    
+    /* ---------- Property Dock ---------- */
+    auto propDock = new QDockWidget(tr("Property"), this);
+    auto propPanel = new PropertyPanel(propDock);
+    propDock->setWidget(propPanel);
+    addDockWidget(Qt::RightDockWidgetArea, propDock);
+
+    /* FlowView ⇄ PropertyPanel 双向绑定 */
+    connect(view, &FlowView::shapeAttr,
+        propPanel, &PropertyPanel::load);
+
+    connect(propPanel, &PropertyPanel::fillChanged,
+        view, &FlowView::setFill);
+    connect(propPanel, &PropertyPanel::strokeChanged,
+        view, &FlowView::setStroke);
+    connect(propPanel, &PropertyPanel::widthChanged,
+        view, &FlowView::setWidth);
+
 
 
     //添加快捷键

@@ -3,8 +3,9 @@
 void Rect::paint(QPainter& p, bool selected) const
 {
     // 填充
-    p.setPen(Qt::black);
-    p.setBrush(Qt::white);
+    QPen pen(strokeColor, strokeWidth);
+    p.setPen(pen);
+    p.setBrush(fillColor);
     p.drawRect(bounds);
 
     // 如果被选中，加虚线高亮

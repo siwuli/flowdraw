@@ -89,6 +89,15 @@ void FlowView::mousePressEvent(QMouseEvent* e)
             break;
         }
     }
+
+    if (selectedIndex_ != -1) {
+        auto* s = shapes_[selectedIndex_].get();
+        emit shapeAttr(s->fillColor, s->strokeColor, s->strokeWidth);
+    }
+    else {
+        emit shapeAttr({}, {}, -1);   // 无选中
+    }
+
     update();
 }
 
@@ -247,6 +256,7 @@ void FlowView::deleteSelection()
     if (selectedIndex_ == -1) return;
     shapes_.erase(shapes_.begin() + selectedIndex_);
     selectedIndex_ = -1;
+    emit shapeAttr({}, {}, -1);
     update();
 }
 
@@ -284,5 +294,26 @@ void FlowView::moveDown()
     if (selectedIndex_ <= 0) return;
     std::swap(shapes_[selectedIndex_], shapes_[selectedIndex_ - 1]);
     --selectedIndex_;
+    update();
+}
+
+
+//实现三个 setter slot
+void FlowView::setFill(const QColor& c)
+{
+    if (selectedIndex_ == -1 || !c.isValid()) return;
+    shapes_[selectedIndex_]->fillColor = c;
+    update();
+}
+void FlowView::setStroke(const QColor& c)
+{
+    if (selectedIndex_ == -1 || !c.isValid()) return;
+    shapes_[selectedIndex_]->strokeColor = c;
+    update();
+}
+void FlowView::setWidth(qreal w)
+{
+    if (selectedIndex_ == -1) return;
+    shapes_[selectedIndex_]->strokeWidth = w;
     update();
 }

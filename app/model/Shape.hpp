@@ -7,6 +7,7 @@
 class Shape
 {
 public:
+
     virtual ~Shape() = default;
 
     // 绘制自身
@@ -19,4 +20,7 @@ public:
     virtual void fromJson(const QJsonObject&) = 0;
 
     QRectF bounds;   // 包围盒，用于移动与序列化
+    QColor  fillColor = Qt::white;   
+    QColor  strokeColor = Qt::black;   
+    qreal   strokeWidth = 1.5;
 };

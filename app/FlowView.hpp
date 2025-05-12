@@ -11,6 +11,10 @@
 class FlowView : public QWidget
 {
     Q_OBJECT
+
+signals:
+    void shapeAttr(const QColor& fill, const QColor& stroke, qreal width);
+
 public:
     explicit FlowView(QWidget* parent = nullptr);
 
@@ -24,6 +28,10 @@ public slots:
     void cutSelection();
     void pasteClipboard();
     void deleteSelection();
+
+    void setFill(const QColor& c);
+    void setStroke(const QColor& c);
+    void setWidth(qreal w);
 
     void bringToFront();
     void sendToBack();
