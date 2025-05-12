@@ -304,16 +304,28 @@ void FlowView::setFill(const QColor& c)
     if (selectedIndex_ == -1 || !c.isValid()) return;
     shapes_[selectedIndex_]->fillColor = c;
     update();
+    
+    // ★ 立即把最新属性广播给面板
+    auto* s = shapes_[selectedIndex_].get();
+    emit shapeAttr(s->fillColor, s->strokeColor, s->strokeWidth);
 }
 void FlowView::setStroke(const QColor& c)
 {
     if (selectedIndex_ == -1 || !c.isValid()) return;
     shapes_[selectedIndex_]->strokeColor = c;
     update();
+
+    // ★ 立即把最新属性广播给面板
+    auto* s = shapes_[selectedIndex_].get();
+    emit shapeAttr(s->fillColor, s->strokeColor, s->strokeWidth);
 }
 void FlowView::setWidth(qreal w)
 {
     if (selectedIndex_ == -1) return;
     shapes_[selectedIndex_]->strokeWidth = w;
     update();
+
+    // ★ 立即把最新属性广播给面板
+    auto* s = shapes_[selectedIndex_].get();
+    emit shapeAttr(s->fillColor, s->strokeColor, s->strokeWidth);
 }
