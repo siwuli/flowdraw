@@ -70,11 +70,12 @@ void FlowView::mousePressEvent(QMouseEvent* e)
     }
 
     /* --- 2. 新建连接线 (起点) --- */
-    if (mode_ == ToolMode::DrawConnector) {
+    if (mode_ == ToolMode::DrawConnector && e->button() == Qt::LeftButton) {
         for (int i = shapes_.size() - 1; i >= 0; --i) {
             if (shapes_[i]->hitTest(e->pos())) {
                 currentConn_.src = shapes_[i].get();
-                currentConn_.tempEnd = e->pos();
+                currentConn_.tempEnd = e->pos();   // 先临时指向鼠标
+                update();
                 return;
             }
         }
@@ -126,7 +127,10 @@ void FlowView::mouseMoveEvent(QMouseEvent* e)
     {
         QPointF d = e->pos() - dragStart_;
         dragStart_ = e->pos();
+
+        //在移动选中图形的同时，重新计算所有连接线两个端点的锚点坐标。
         shapes_[selectedIndex_]->bounds.translate(d);
+        updateConnectorsFor(shapes_[selectedIndex_].get());
         update();
     }
 }
@@ -135,11 +139,11 @@ void FlowView::mouseReleaseEvent(QMouseEvent* e)
 {
     Q_UNUSED(e)
 
-        /* 完成 DrawRect / DrawEllipse */
-        if (mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse) {
-            mode_ = ToolMode::None;
-            return;
-        }
+    /* 完成 DrawRect / DrawEllipse */
+    if (mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse) {
+        mode_ = ToolMode::None;
+        return;
+    }
 
     /* 完成连接线 (寻找终点) */
     if (mode_ == ToolMode::DrawConnector && currentConn_.src) {
@@ -156,6 +160,7 @@ void FlowView::mouseReleaseEvent(QMouseEvent* e)
         currentConn_ = Connector{};
         mode_ = ToolMode::None;
         update();
+        return;
     }
 }
 
@@ -328,4 +333,14 @@ void FlowView::setWidth(qreal w)
     // ★ 立即把最新属性广播给面板
     auto* s = shapes_[selectedIndex_].get();
     emit shapeAttr(s->fillColor, s->strokeColor, s->strokeWidth);
+}
+
+
+void FlowView::updateConnectorsFor(Shape* movedShape)
+{
+    for (auto& c : connectors_) {
+        if (c.src == movedShape || c.dst == movedShape) {
+            // 只需触发重绘即可，真正坐标在 paint() 时重新计算
+        }
+    }
 }

@@ -34,11 +34,24 @@ MainWindow::MainWindow(QWidget* parent)
     auto toolBar = addToolBar(tr("Tools"));
     auto actRect = toolBar->addAction(tr("Rectangle"));
     auto actEllipse = toolBar->addAction(tr("Ellipse"));
+    auto actLine = toolBar->addAction(tr("Connector"));
 
     connect(actRect, &QAction::triggered, this, [view] {
         view->clearSelection();
         view->setToolMode(FlowView::ToolMode::DrawRect);
         });
+
+    //椭圆按钮
+    connect(actEllipse, &QAction::triggered, this, [view] {
+        view->clearSelection();
+        view->setToolMode(FlowView::ToolMode::DrawEllipse);
+        });
+
+    connect(actLine, &QAction::triggered, this, [view] {
+        view->clearSelection();                               // 取消现有选中
+        view->setToolMode(FlowView::ToolMode::DrawConnector);
+        });
+
 
     /* ---------- Palette Dock ---------- */
     auto paletteDock = new QDockWidget(tr("Palette"), this);
@@ -80,11 +93,7 @@ MainWindow::MainWindow(QWidget* parent)
     paletteDock->setWidget(palette);
     addDockWidget(Qt::LeftDockWidgetArea, paletteDock);
 
-    //给工具栏再加一个椭圆按钮
-    connect(actEllipse, &QAction::triggered, this, [view] {
-        view->clearSelection();
-        view->setToolMode(FlowView::ToolMode::DrawEllipse);
-        });
+    
 
     
     /* ---------- Property Dock ---------- */

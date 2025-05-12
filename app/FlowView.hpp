@@ -33,6 +33,9 @@ public slots:
     void setStroke(const QColor& c);
     void setWidth(qreal w);
 
+    void updateConnectorsFor(Shape* movedShape);
+
+
     void bringToFront();
     void sendToBack();
     void moveUp();
