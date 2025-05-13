@@ -9,7 +9,7 @@ QPointF Connector::anchorPoint(const Shape* s, const QPointF& ref) const
 void Connector::drawArrow(QPainter& p, const QPointF& from, const QPointF& to) const
 {
     QLineF line(from, to);
-    constexpr double arrowSize = 16; // 增大箭头尺寸，使其更明显
+    constexpr double arrowSize = 12; // 将箭头尺寸从16减小到12
     
     // 计算连接线的方向角度
     // 注意: 在Qt的坐标系统中, Y轴向下为正, 所以需要反转Y值来计算正确的角度
