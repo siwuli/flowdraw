@@ -129,10 +129,65 @@ void FlowView::mousePressEvent(QMouseEvent* e)
 
     /* --- 2. 新建连接线 (起点) --- */
     if (mode_ == ToolMode::DrawConnector && e->button() == Qt::LeftButton) {
+        // 如果当前已经有一个连接线起点，则尝试完成连接
+        if (currentConn_.src) {
+            // 检查是否点击到了作为终点的形状
+            for (int i = shapes_.size() - 1; i >= 0; --i) {
+                if (shapes_[i].get() != currentConn_.src && shapes_[i]->hitTest(docPos)) {
+                    // 找到终点形状，创建连接线
+                    currentConn_.dst = shapes_[i].get();
+                    connectors_.push_back(currentConn_);
+                    
+                    // 重置当前连接线
+                    currentConn_ = Connector{};
+                    
+                    // 完成连线后，自动退出连接器模式
+                    mode_ = ToolMode::None;
+                    setCursor(Qt::ArrowCursor);
+                    
+                    // 更新视图
+                    update();
+                    return;
+                }
+            }
+            
+            // 如果点击空白处或同一个形状，取消当前连接线
+            currentConn_ = Connector{};
+            update();
+            return;
+        }
+        
+        // 检查是否点击了已有图形作为连线起点
         for (int i = shapes_.size() - 1; i >= 0; --i) {
             if (shapes_[i]->hitTest(docPos)) {
                 currentConn_.src = shapes_[i].get();
                 currentConn_.tempEnd = docPos;   // temporary pointer position
+                update();
+                return;
+            }
+        }
+        
+        // 如果没有点击到任何形状，但处于连接器模式，尝试以选择操作处理
+        if (mode_ == ToolMode::DrawConnector) {
+            // 尝试选择模式的行为
+            int newSelectedIndex = -1;
+            for (int i = shapes_.size() - 1; i >= 0; --i) {
+                if (shapes_[i]->hitTest(docPos)) {
+                    newSelectedIndex = i;
+                    break;
+                }
+            }
+            
+            if (newSelectedIndex != -1) {
+                // 点击到了形状，但没有开始连线，切换回选择模式
+                selectedIndex_ = newSelectedIndex;
+                auto* s = shapes_[selectedIndex_].get();
+                emit shapeAttr(s->fillColor, s->strokeColor, s->strokeWidth);
+                updatePropertyPanel();
+                
+                // 切换回选择模式
+                mode_ = ToolMode::None;
+                setCursor(Qt::ArrowCursor);
                 update();
                 return;
             }
@@ -167,6 +222,13 @@ void FlowView::mousePressEvent(QMouseEvent* e)
     else {
         emit shapeAttr({}, {}, -1);   // no selection
         emit shapeSize(0, 0);  // 清空尺寸数据
+        
+        // 如果点击空白处且处于连接器模式，退回到选择模式
+        if (mode_ == ToolMode::DrawConnector) {
+            mode_ = ToolMode::None;
+            currentConn_ = Connector{};
+            setCursor(Qt::ArrowCursor);
+        }
     }
 
     resizeHandle_ = ResizeHandle::None;
@@ -200,110 +262,181 @@ void FlowView::mouseMoveEvent(QMouseEvent* e)
         return;
     }
 
-    /* --- 调整矩形/椭圆大小 --- */
+    /* --- 1. 调整矩形大小 --- */
     if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse) &&
-        selectedIndex_ != -1)
+        selectedIndex_ != -1 && (e->buttons() & Qt::LeftButton))
     {
-        shapes_[selectedIndex_]->bounds.setBottomRight(docPos);
+        auto& r = shapes_[selectedIndex_]->bounds;
+        r.setBottomRight(docPos);
         update();
         return;
     }
 
-    /* --- 实时连接线 --- */
-    if (mode_ == ToolMode::DrawConnector && currentConn_.src) {
+    /* --- 2. 连接线拖拽 --- */
+    if (mode_ == ToolMode::DrawConnector && currentConn_.src)
+    {
         currentConn_.tempEnd = docPos;
+                
+        // 查找终点是否落在任何图形上
+        Shape* hitShape = nullptr;
+        for (int i = shapes_.size() - 1; i >= 0; --i) {
+            if (shapes_[i].get() != currentConn_.src && shapes_[i]->hitTest(docPos)) {
+                hitShape = shapes_[i].get();
+                break;
+            }
+        }
+        
+        // 当鼠标悬停在可连接的目标形状上时，改变光标样式提示用户
+        if (hitShape) {
+            setCursor(Qt::PointingHandCursor);
+        } else {
+            setCursor(Qt::CrossCursor);
+        }
+        
+        // 设置临时终点
+        currentConn_.dst = hitShape;
         update();
         return;
-    }
-
-    /* --- 移动选中图形 --- */
-    if (mode_ == ToolMode::None &&
-        selectedIndex_ != -1 &&
-        resizeHandle_ == ResizeHandle::None &&
-        (e->buttons() & Qt::LeftButton))
-    {
-        QPointF d = docPos - dragStart_;
-        dragStart_ = docPos;
-
-        // 移动选中图形的同时更新连接线的锚点
-        shapes_[selectedIndex_]->bounds.translate(d);
-        updateConnectorsFor(shapes_[selectedIndex_].get());
-        update();
     }
     
-    // 更新鼠标指针样式 - 根据调整柄位置显示不同光标
+    /* --- 3. 拖拽移动图形 --- */
+    if (mode_ == ToolMode::None && selectedIndex_ != -1 && 
+        (e->buttons() & Qt::LeftButton) && resizeHandle_ == ResizeHandle::None)
+    {
+        QPointF delta = docPos - dragStart_;
+        dragStart_ = docPos;
+        
+        shapes_[selectedIndex_]->bounds.translate(delta);
+        updateConnectorsFor(shapes_[selectedIndex_].get());
+        update();
+        return;
+    }
+    
+    /* --- 4. 悬停时显示合适的鼠标指针 --- */
     if (selectedIndex_ != -1 && mode_ == ToolMode::None) {
-        ResizeHandle handle = hitTestResizeHandles(docPos, shapes_[selectedIndex_]->bounds);
-        switch (handle) {
-            case ResizeHandle::TopLeft:
-            case ResizeHandle::BottomRight:
-                setCursor(Qt::SizeFDiagCursor);
-                break;
-            case ResizeHandle::TopRight:
-            case ResizeHandle::BottomLeft:
-                setCursor(Qt::SizeBDiagCursor);
-                break;
-            case ResizeHandle::TopCenter:
-            case ResizeHandle::BottomCenter:
-                setCursor(Qt::SizeVerCursor);
-                break;
-            case ResizeHandle::MiddleLeft:
-            case ResizeHandle::MiddleRight:
-                setCursor(Qt::SizeHorCursor);
-                break;
-            default:
-                setCursor(Qt::ArrowCursor);
-                break;
+        ResizeHandle hitHandle = hitTestResizeHandles(docPos, shapes_[selectedIndex_]->bounds);
+        
+        if (hitHandle != ResizeHandle::None) {
+            // 根据调整柄类型设置不同的鼠标指针形状
+            switch (hitHandle) {
+                case ResizeHandle::TopLeft:
+                case ResizeHandle::BottomRight:
+                    setCursor(Qt::SizeFDiagCursor);
+                    break;
+                    
+                case ResizeHandle::TopRight:
+                case ResizeHandle::BottomLeft:
+                    setCursor(Qt::SizeBDiagCursor);
+                    break;
+                    
+                case ResizeHandle::TopCenter:
+                case ResizeHandle::BottomCenter:
+                    setCursor(Qt::SizeVerCursor);
+                    break;
+                    
+                case ResizeHandle::MiddleLeft:
+                case ResizeHandle::MiddleRight:
+                    setCursor(Qt::SizeHorCursor);
+                    break;
+                    
+                default:
+                    setCursor(Qt::ArrowCursor);
+                    break;
+            }
+            return;
         }
+    }
+    
+    // 检查是否悬停在任何图形上
+    bool hitAnyShape = false;
+    for (int i = shapes_.size() - 1; i >= 0; --i) {
+        if (shapes_[i]->hitTest(docPos)) {
+            hitAnyShape = true;
+            break;
+        }
+    }
+    
+    // 在连接器模式下，如果鼠标悬停在形状上显示相应的光标
+    if (mode_ == ToolMode::DrawConnector) {
+        setCursor(hitAnyShape ? Qt::PointingHandCursor : Qt::CrossCursor);
     } else {
-        setCursor(Qt::ArrowCursor);
+        setCursor(hitAnyShape ? Qt::OpenHandCursor : Qt::ArrowCursor);
     }
 }
 
 void FlowView::mouseReleaseEvent(QMouseEvent* e)
 {
-    if (isPanning_) {
+    if (isPanning_ && e->button() == Qt::LeftButton) {
         setCursor(Qt::OpenHandCursor);
-        e->accept();
+        update();
         return;
     }
     
-    // 将视图坐标转换为文档坐标
     QPointF docPos = viewToDoc(e->pos());
 
-    /* --- 完成矩形/椭圆绘制 --- */
-    if (mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse) {
-        // 确保图形有一定的大小
-        if (shapes_.size() > 0 && selectedIndex_ >= 0) {
-            QRectF bounds = shapes_[selectedIndex_]->bounds;
-            if (bounds.width() < 5 || bounds.height() < 5) {
-                // 如果图形太小，删除它
-                shapes_.erase(shapes_.begin() + selectedIndex_);
-            }
+    /* --- 完成连接线绘制 --- */
+    if (mode_ == ToolMode::DrawConnector && currentConn_.src && e->button() == Qt::LeftButton)
+    {
+        // 如果找到了终点，添加这条连接线
+        if (currentConn_.dst)
+        {
+            connectors_.push_back(currentConn_);
+            // 重置连接线状态
+            currentConn_ = Connector{};
+            
+            // 连线完成后，退出连接器模式
+            mode_ = ToolMode::None;
+            setCursor(Qt::ArrowCursor);
         }
-        mode_ = ToolMode::None;
+        else
+        {
+            // 没有终点，取消当前连接线
+            currentConn_ = Connector{};
+        }
+        
+        update();
+        return;
+    }
+    
+    /* --- 完成矩形/椭圆绘制 --- */
+    if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse) && 
+        selectedIndex_ != -1 && e->button() == Qt::LeftButton)
+    {
+        auto& r = shapes_[selectedIndex_]->bounds;
+        if (r.width() < 5 || r.height() < 5) {
+            // 如果太小则删除
+            shapes_.erase(shapes_.begin() + selectedIndex_);
+            selectedIndex_ = -1;
+        } else {
+            // 确保矩形尺寸正常
+            if (r.width() < 0) {
+                r.setLeft(r.right());
+                r.setRight(r.left() - r.width());
+            }
+            if (r.height() < 0) {
+                r.setTop(r.bottom());
+                r.setBottom(r.top() - r.height());
+            }
+            
+            // 绘制完成后，切换回选择工具
+            mode_ = ToolMode::None;
+            setCursor(Qt::ArrowCursor);
+        }
+        
         update();
         return;
     }
 
-    /* --- 结束连接线 --- */
-    if (mode_ == ToolMode::DrawConnector && currentConn_.src) {
-        for (int i = shapes_.size() - 1; i >= 0; --i) {
-            if (shapes_[i]->hitTest(docPos) && shapes_[i].get() != currentConn_.src) {
-                currentConn_.dst = shapes_[i].get();
-                connectors_.push_back(currentConn_);
-                break;
-            }
+    /* --- 拖拽时，如果移出了画布区域则删除 --- */
+    if (selectedIndex_ != -1 && e->button() == Qt::LeftButton)
+    {
+        if (docPos.x() < 0 || docPos.y() < 0 || 
+            docPos.x() > pageSize_.width() || docPos.y() > pageSize_.height())
+        {
+            shapes_.erase(shapes_.begin() + selectedIndex_);
+            selectedIndex_ = -1;
+            update();
         }
-        currentConn_.src = currentConn_.dst = nullptr;
-        mode_ = ToolMode::None;
-        update();
-    }
-    
-    // 重置调整大小的状态
-    if (resizeHandle_ != ResizeHandle::None) {
-        resizeHandle_ = ResizeHandle::None;
-        setCursor(Qt::ArrowCursor);
     }
 }
 
@@ -319,18 +452,6 @@ void FlowView::dropEvent(QDropEvent* e)
     QByteArray ba = e->mimeData()->data("application/x-flow-shape");
     QString type = QString::fromUtf8(ba);
 
-    // 如果是连接器类型，切换到连接器绘制模式
-    if (type == "connector") {
-        setToolMode(ToolMode::DrawConnector);
-        e->acceptProposedAction();
-        return;
-    }
-
-    std::unique_ptr<Shape> s;
-    if (type == "rect")    s = std::make_unique<Rect>();
-    else if (type == "ellipse") s = std::make_unique<Ellipse>();
-    if (!s) return;
-
     // 将放置位置从视图坐标转换为文档坐标
     QPointF docPos = viewToDoc(e->pos());
     
@@ -339,6 +460,19 @@ void FlowView::dropEvent(QDropEvent* e)
         docPos.x() > pageSize_.width() || docPos.y() > pageSize_.height()) {
         return;
     }
+
+    // 如果是连接器类型，切换到连接器绘制模式
+    if (type == "connector") {
+        setToolMode(ToolMode::DrawConnector);
+        setCursor(Qt::CrossCursor);  // 设置十字光标
+        e->acceptProposedAction();
+        return;
+    }
+
+    std::unique_ptr<Shape> s;
+    if (type == "rect")    s = std::make_unique<Rect>();
+    else if (type == "ellipse") s = std::make_unique<Ellipse>();
+    if (!s) return;
     
     s->bounds = { docPos.x() - 50, docPos.y() - 30, 100, 60 };
     shapes_.push_back(std::move(s));
@@ -864,6 +998,18 @@ void FlowView::keyPressEvent(QKeyEvent* event)
     const int step = 20;
     
     switch (event->key()) {
+        case Qt::Key_Escape:
+            // Escape键用于取消当前操作，回到选择模式
+            if (mode_ != ToolMode::None) {
+                mode_ = ToolMode::None;
+                currentConn_ = Connector{};
+                setCursor(Qt::ArrowCursor);
+                update();
+                event->accept();
+                return;
+            }
+            break;
+            
         case Qt::Key_Plus:
         case Qt::Key_Equal:
             if (event->modifiers() & Qt::ControlModifier) {

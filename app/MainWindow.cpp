@@ -157,7 +157,9 @@ MainWindow::MainWindow(QWidget* parent)
     connect(actLine, &QAction::triggered, this, [view] {
         view->clearSelection();                               // 取消现有选中
         view->setToolMode(FlowView::ToolMode::DrawConnector);
-        });
+        // 设置鼠标指针为十字形状，提示用户可以直接在画布上绘制连接线
+        view->setCursor(Qt::CrossCursor);
+    });
 
     // 连接视图控制按钮
     connect(actZoomIn, &QAction::triggered, view, &FlowView::zoomIn);
@@ -175,18 +177,12 @@ MainWindow::MainWindow(QWidget* parent)
     palette->setSpacing(4);
     palette->setDragEnabled(true);
     
-    // 顶部：连接器
+    // 顶部：连接器（单独一行）
     auto* itConnector = new QListWidgetItem(QIcon(":/icons/connector.svg"), tr("Connector"));
     itConnector->setData(Qt::UserRole, "connector");
+    itConnector->setSizeHint(QSize(palette->width(), 80)); // 增加高度，确保文字完整显示
     palette->addItem(itConnector);
     
-    // 添加一个分隔条（空item作为视觉分隔）
-    auto* separator = new QListWidgetItem();
-    separator->setFlags(Qt::NoItemFlags); // 禁用此项
-    separator->setSizeHint(QSize(palette->width(), 10)); // 设置高度为10像素
-    separator->setBackground(QColor(200, 200, 200, 100)); // 设置淡灰色背景
-    palette->addItem(separator);
-
     // 基本图形：矩形
     auto* itRect = new QListWidgetItem(QIcon(":/icons/rect.svg"), tr("Rectangle"));
     itRect->setData(Qt::UserRole, "rect");
@@ -224,6 +220,8 @@ MainWindow::MainWindow(QWidget* parent)
             if (type == "connector") {
                 view->clearSelection();
                 view->setToolMode(FlowView::ToolMode::DrawConnector);
+                // 重要：将鼠标指针改为十字形状，提示用户可以直接在画布上绘制连接线
+                view->setCursor(Qt::CrossCursor);
             } else if (type == "rect") {
                 view->clearSelection();
                 view->setToolMode(FlowView::ToolMode::DrawRect);
