@@ -148,6 +148,8 @@ MainWindow::MainWindow(QWidget* parent)
     auto actDiamond = shapesMenu->addAction(tr("Diamond"));
     auto actTriangle = shapesMenu->addAction(tr("Triangle"));
     auto actPentagon = shapesMenu->addAction(tr("Pentagon"));
+    auto actHexagon = shapesMenu->addAction(tr("Hexagon"));
+    auto actOctagon = shapesMenu->addAction(tr("Octagon"));
     
     // 设置菜单到按钮
     shapesButton->setMenu(shapesMenu);
@@ -194,6 +196,20 @@ MainWindow::MainWindow(QWidget* parent)
         view->clearSelection();
         qDebug() << "Pentagon draw mode activated";
         view->setToolMode(FlowView::ToolMode::DrawPentagon);
+        });
+
+    //六边形按钮
+    connect(actHexagon, &QAction::triggered, this, [view] {
+        view->clearSelection();
+        qDebug() << "Hexagon draw mode activated";
+        view->setToolMode(FlowView::ToolMode::DrawHexagon);
+        });
+        
+    //八边形按钮
+    connect(actOctagon, &QAction::triggered, this, [view] {
+        view->clearSelection();
+        qDebug() << "Octagon draw mode activated";
+        view->setToolMode(FlowView::ToolMode::DrawOctagon);
         });
 
     connect(actLine, &QAction::triggered, this, [view] {
@@ -285,6 +301,18 @@ MainWindow::MainWindow(QWidget* parent)
     itPentagon->setToolTip(tr("Pentagon"));
     palette->addItem(itPentagon);
 
+    // 六边形图标
+    auto* itHexagon = new QListWidgetItem(QIcon(":/icons/hexagon.svg"), "");
+    itHexagon->setData(Qt::UserRole, "hexagon");
+    itHexagon->setToolTip(tr("Hexagon"));
+    palette->addItem(itHexagon);
+    
+    // 八边形图标
+    auto* itOctagon = new QListWidgetItem(QIcon(":/icons/octagon.svg"), "");
+    itOctagon->setData(Qt::UserRole, "octagon");
+    itOctagon->setToolTip(tr("Octagon"));
+    palette->addItem(itOctagon);
+
     // 拖拽实现
     palette->setDefaultDropAction(Qt::CopyAction);
     palette->installEventFilter(palette);          // 让 lambda 捕获
@@ -329,6 +357,12 @@ MainWindow::MainWindow(QWidget* parent)
             } else if (type == "pentagon") {
                 view->clearSelection();
                 view->setToolMode(FlowView::ToolMode::DrawPentagon);
+            } else if (type == "hexagon") {
+                view->clearSelection();
+                view->setToolMode(FlowView::ToolMode::DrawHexagon);
+            } else if (type == "octagon") {
+                view->clearSelection();
+                view->setToolMode(FlowView::ToolMode::DrawOctagon);
             }
         });
 

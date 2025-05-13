@@ -22,7 +22,7 @@ public:
     explicit FlowView(QWidget* parent = nullptr);
 
     /* ---------- 工具模式 ---------- */
-    enum class ToolMode { None, DrawRect, DrawEllipse, DrawDiamond, DrawConnector, DrawTriangle, DrawPentagon };
+    enum class ToolMode { None, DrawRect, DrawEllipse, DrawDiamond, DrawConnector, DrawTriangle, DrawPentagon, DrawHexagon, DrawOctagon };
     void setToolMode(ToolMode m);
 
     /* ---------- 文件操作 ---------- */

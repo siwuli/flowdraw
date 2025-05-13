@@ -1,32 +1,41 @@
-#include "Pentagon.hpp"
+#include "Octagon.hpp"
 #include <QPainterPath>
 #include <QtMath>
 #include <limits>
 
-void Pentagon::paint(QPainter& p, bool selected) const
+void Octagon::paint(QPainter& p, bool selected) const
 {
-    // 创建五边形路径
+    // 创建八边形路径
     QPainterPath path;
     QRectF rect = bounds;
     QPointF center = rect.center();
     
-    // 计算五边形的五个顶点，基于矩形边界
-    // 按照水平布局的、可压缩的五边形
-    QPointF top(center.x(), rect.top());
-    QPointF topRight(rect.right(), rect.top() + rect.height() * 0.4);
-    QPointF bottomRight(rect.right() - rect.width() * 0.25, rect.bottom());
-    QPointF bottomLeft(rect.left() + rect.width() * 0.25, rect.bottom());
-    QPointF topLeft(rect.left(), rect.top() + rect.height() * 0.4);
+    // 计算八边形的八个顶点，基于矩形边界
+    // 按照水平布局的、可压缩的八边形
+    qreal wStep = rect.width() / 4.0;
+    qreal hStep = rect.height() / 4.0;
     
-    // 构建五边形路径
-    path.moveTo(top);
+    QPointF leftTop(rect.left(), rect.top() + hStep);
+    QPointF topLeft(rect.left() + wStep, rect.top());
+    QPointF topRight(rect.right() - wStep, rect.top());
+    QPointF rightTop(rect.right(), rect.top() + hStep);
+    QPointF rightBottom(rect.right(), rect.bottom() - hStep);
+    QPointF bottomRight(rect.right() - wStep, rect.bottom());
+    QPointF bottomLeft(rect.left() + wStep, rect.bottom());
+    QPointF leftBottom(rect.left(), rect.bottom() - hStep);
+    
+    // 构建八边形路径
+    path.moveTo(leftTop);
+    path.lineTo(topLeft);
     path.lineTo(topRight);
+    path.lineTo(rightTop);
+    path.lineTo(rightBottom);
     path.lineTo(bottomRight);
     path.lineTo(bottomLeft);
-    path.lineTo(topLeft);
+    path.lineTo(leftBottom);
     path.closeSubpath();
     
-    // 绘制五边形
+    // 绘制八边形
     QPen pen(strokeColor, strokeWidth);
     p.setPen(pen);
     p.setBrush(fillColor);
@@ -45,47 +54,64 @@ void Pentagon::paint(QPainter& p, bool selected) const
     }
 }
 
-bool Pentagon::hitTest(const QPointF& pt) const
+bool Octagon::hitTest(const QPointF& pt) const
 {
-    // 创建五边形路径用于命中测试
+    // 创建八边形路径用于命中测试
     QPainterPath path;
     QRectF rect = bounds;
-    QPointF center = rect.center();
     
-    // 计算五边形的五个顶点
-    QPointF top(center.x(), rect.top());
-    QPointF topRight(rect.right(), rect.top() + rect.height() * 0.4);
-    QPointF bottomRight(rect.right() - rect.width() * 0.25, rect.bottom());
-    QPointF bottomLeft(rect.left() + rect.width() * 0.25, rect.bottom());
-    QPointF topLeft(rect.left(), rect.top() + rect.height() * 0.4);
+    // 计算八边形的八个顶点
+    qreal wStep = rect.width() / 4.0;
+    qreal hStep = rect.height() / 4.0;
     
-    path.moveTo(top);
+    QPointF leftTop(rect.left(), rect.top() + hStep);
+    QPointF topLeft(rect.left() + wStep, rect.top());
+    QPointF topRight(rect.right() - wStep, rect.top());
+    QPointF rightTop(rect.right(), rect.top() + hStep);
+    QPointF rightBottom(rect.right(), rect.bottom() - hStep);
+    QPointF bottomRight(rect.right() - wStep, rect.bottom());
+    QPointF bottomLeft(rect.left() + wStep, rect.bottom());
+    QPointF leftBottom(rect.left(), rect.bottom() - hStep);
+    
+    path.moveTo(leftTop);
+    path.lineTo(topLeft);
     path.lineTo(topRight);
+    path.lineTo(rightTop);
+    path.lineTo(rightBottom);
     path.lineTo(bottomRight);
     path.lineTo(bottomLeft);
-    path.lineTo(topLeft);
+    path.lineTo(leftBottom);
     path.closeSubpath();
     
     return path.contains(pt);
 }
 
-QPointF Pentagon::getConnectionPoint(const QPointF& ref) const
+QPointF Octagon::getConnectionPoint(const QPointF& ref) const
 {
     QRectF rect = bounds;
     QPointF center = rect.center();
     
-    // 计算五边形的顶点
-    QPointF top(center.x(), rect.top());
-    QPointF topRight(rect.right(), rect.top() + rect.height() * 0.4);
-    QPointF bottomRight(rect.right() - rect.width() * 0.25, rect.bottom());
-    QPointF bottomLeft(rect.left() + rect.width() * 0.25, rect.bottom());
-    QPointF topLeft(rect.left(), rect.top() + rect.height() * 0.4);
+    // 计算八边形的八个顶点
+    qreal wStep = rect.width() / 4.0;
+    qreal hStep = rect.height() / 4.0;
     
-    // 五边形顶点数组
-    const int numPoints = 5;
-    QPointF points[numPoints] = {top, topRight, bottomRight, bottomLeft, topLeft};
+    QPointF leftTop(rect.left(), rect.top() + hStep);
+    QPointF topLeft(rect.left() + wStep, rect.top());
+    QPointF topRight(rect.right() - wStep, rect.top());
+    QPointF rightTop(rect.right(), rect.top() + hStep);
+    QPointF rightBottom(rect.right(), rect.bottom() - hStep);
+    QPointF bottomRight(rect.right() - wStep, rect.bottom());
+    QPointF bottomLeft(rect.left() + wStep, rect.bottom());
+    QPointF leftBottom(rect.left(), rect.bottom() - hStep);
     
-    // 计算参考点到五边形中心的方向向量
+    // 八边形顶点数组
+    const int numPoints = 8;
+    QPointF points[numPoints] = {
+        leftTop, topLeft, topRight, rightTop, 
+        rightBottom, bottomRight, bottomLeft, leftBottom
+    };
+    
+    // 计算参考点到八边形中心的方向向量
     QPointF direction = ref - center;
     
     // 如果方向向量为零，直接返回中心点
@@ -93,7 +119,7 @@ QPointF Pentagon::getConnectionPoint(const QPointF& ref) const
         return center;
     }
     
-    // 创建五边形的五条边
+    // 创建八边形的八条边
     QLineF edges[numPoints];
     for (int i = 0; i < numPoints; ++i) {
         edges[i] = QLineF(points[i], points[(i + 1) % numPoints]);
@@ -123,7 +149,7 @@ QPointF Pentagon::getConnectionPoint(const QPointF& ref) const
         return bestIntersection;
     }
     
-    // 如果没有找到交点（这是一个安全措施），使用五个顶点中最近的点
+    // 如果没有找到交点（这是一个安全措施），使用八个顶点中最近的点
     QPointF bestVertex = points[0];
     bestDistance = QLineF(ref, bestVertex).length();
     
@@ -138,10 +164,10 @@ QPointF Pentagon::getConnectionPoint(const QPointF& ref) const
     return bestVertex;
 }
 
-QJsonObject Pentagon::toJson() const
+QJsonObject Octagon::toJson() const
 {
     return QJsonObject{
-        {"type", "pentagon"},
+        {"type", "octagon"},
         {"x", bounds.x()}, {"y", bounds.y()},
         {"w", bounds.width()}, {"h", bounds.height()},
         {"fill", fillColor.name(QColor::HexArgb)},
@@ -153,14 +179,14 @@ QJsonObject Pentagon::toJson() const
     };
 }
 
-void Pentagon::fromJson(const QJsonObject& o)
+void Octagon::fromJson(const QJsonObject& o)
 {
     bounds = { o["x"].toDouble(), o["y"].toDouble(),
-               o["w"].toDouble(), o["h"].toDouble() };
+              o["w"].toDouble(), o["h"].toDouble() };
     fillColor = QColor(o["fill"].toString("#ffffffff"));
     strokeColor = QColor(o["stroke"].toString("#ff000000"));
     strokeWidth = o["width"].toDouble(1.5);
     text = o["text"].toString();
     textColor = QColor(o["textColor"].toString("#ff000000"));
     textSize = o["textSize"].toInt(10);
-} 
+}

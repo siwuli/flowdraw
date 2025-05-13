@@ -22,6 +22,8 @@
 #include "model/Triangle.hpp"
 #include "model/Ellipse.hpp"
 #include "model/Pentagon.hpp"
+#include "model/Hexagon.hpp"
+#include "model/Octagon.hpp"
 
 /* =====  ===== */
 FlowView::FlowView(QWidget* parent)
@@ -153,6 +155,24 @@ void FlowView::mousePressEvent(QMouseEvent* e)
         pentagon->bounds.setTopLeft(docPos);
         pentagon->bounds.setBottomRight(docPos);
         shapes_.push_back(std::move(pentagon));
+        selectedIndex_ = int(shapes_.size()) - 1;
+        dragStart_ = docPos;
+        return;
+    }
+    if (mode_ == ToolMode::DrawHexagon) {
+        auto hexagon = std::make_unique<Hexagon>();
+        hexagon->bounds.setTopLeft(docPos);
+        hexagon->bounds.setBottomRight(docPos);
+        shapes_.push_back(std::move(hexagon));
+        selectedIndex_ = int(shapes_.size()) - 1;
+        dragStart_ = docPos;
+        return;
+    }
+    if (mode_ == ToolMode::DrawOctagon) {
+        auto octagon = std::make_unique<Octagon>();
+        octagon->bounds.setTopLeft(docPos);
+        octagon->bounds.setBottomRight(docPos);
+        shapes_.push_back(std::move(octagon));
         selectedIndex_ = int(shapes_.size()) - 1;
         dragStart_ = docPos;
         return;
@@ -302,7 +322,9 @@ void FlowView::mouseMoveEvent(QMouseEvent* e)
     }
 
     /* --- 1. 调整矩形大小 --- */
-    if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse || mode_ == ToolMode::DrawDiamond || mode_ == ToolMode::DrawTriangle || mode_ == ToolMode::DrawPentagon) &&
+    if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse || mode_ == ToolMode::DrawDiamond || 
+         mode_ == ToolMode::DrawTriangle || mode_ == ToolMode::DrawPentagon || mode_ == ToolMode::DrawHexagon || 
+         mode_ == ToolMode::DrawOctagon) &&
         selectedIndex_ != -1 && (e->buttons() & Qt::LeftButton))
     {
         auto& r = shapes_[selectedIndex_]->bounds;
@@ -438,7 +460,9 @@ void FlowView::mouseReleaseEvent(QMouseEvent* e)
     }
     
     /* --- 完成矩形/椭圆绘制 --- */
-    if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse || mode_ == ToolMode::DrawDiamond || mode_ == ToolMode::DrawTriangle || mode_ == ToolMode::DrawPentagon) && 
+    if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse || mode_ == ToolMode::DrawDiamond || 
+         mode_ == ToolMode::DrawTriangle || mode_ == ToolMode::DrawPentagon || mode_ == ToolMode::DrawHexagon ||
+         mode_ == ToolMode::DrawOctagon) && 
         selectedIndex_ != -1 && e->button() == Qt::LeftButton)
     {
         auto& r = shapes_[selectedIndex_]->bounds;
@@ -514,6 +538,8 @@ void FlowView::dropEvent(QDropEvent* e)
     else if (type == "diamond") s = std::make_unique<Diamond>();
     else if (type == "triangle") s = std::make_unique<Triangle>();
     else if (type == "pentagon") s = std::make_unique<Pentagon>();
+    else if (type == "hexagon") s = std::make_unique<Hexagon>();
+    else if (type == "octagon") s = std::make_unique<Octagon>();
     if (!s) return;
     
     s->bounds = { docPos.x() - 50, docPos.y() - 30, 100, 60 };
@@ -650,6 +676,8 @@ void FlowView::pasteClipboard()
     else if (type == "diamond") s = std::make_unique<Diamond>();
     else if (type == "triangle") s = std::make_unique<Triangle>();
     else if (type == "pentagon") s = std::make_unique<Pentagon>();
+    else if (type == "hexagon") s = std::make_unique<Hexagon>();
+    else if (type == "octagon") s = std::make_unique<Octagon>();
     if (!s) return;
     s->fromJson(obj);
     s->bounds.translate(10, 10);       // ΢ƫ
@@ -892,6 +920,10 @@ bool FlowView::loadFromFile(const QString& filename)
                 shape = std::make_unique<Triangle>();
             } else if (type == "pentagon") {
                 shape = std::make_unique<Pentagon>();
+            } else if (type == "hexagon") {
+                shape = std::make_unique<Hexagon>();
+            } else if (type == "octagon") {
+                shape = std::make_unique<Octagon>();
             }
             
             if (shape) {

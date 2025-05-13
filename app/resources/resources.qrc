@@ -7,5 +7,7 @@
         <file>icons/diamond.svg</file>
         <file>icons/triangle.svg</file>
         <file>icons/pentagon.svg</file>
+        <file>icons/hexagon.svg</file>
+        <file>icons/octagon.svg</file>
     </qresource>
 </RCC> 
