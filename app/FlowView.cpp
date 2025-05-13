@@ -161,9 +161,12 @@ void FlowView::mousePressEvent(QMouseEvent* e)
     if (selectedIndex_ != -1) {
         auto* s = shapes_[selectedIndex_].get();
         emit shapeAttr(s->fillColor, s->strokeColor, s->strokeWidth);
+        // 更新属性面板，包括尺寸
+        updatePropertyPanel();
     }
     else {
         emit shapeAttr({}, {}, -1);   // no selection
+        emit shapeSize(0, 0);  // 清空尺寸数据
     }
 
     resizeHandle_ = ResizeHandle::None;
@@ -192,6 +195,7 @@ void FlowView::mouseMoveEvent(QMouseEvent* e)
         
         resizeRect(shapes_[selectedIndex_]->bounds, resizeHandle_, offset);
         updateConnectorsFor(shapes_[selectedIndex_].get());
+        updatePropertyPanel();  // 更新尺寸属性面板
         update();
         return;
     }
@@ -331,6 +335,11 @@ void FlowView::dropEvent(QDropEvent* e)
     
     s->bounds = { docPos.x() - 50, docPos.y() - 30, 100, 60 };
     shapes_.push_back(std::move(s));
+    
+    // 选中新放置的图形
+    selectedIndex_ = shapes_.size() - 1;
+    updatePropertyPanel();
+    
     update();
     e->acceptProposedAction();
 }
@@ -350,6 +359,7 @@ void FlowView::contextMenuEvent(QContextMenuEvent* e)
         }
     }
     update();
+    updatePropertyPanel();
 
     QMenu menu(this);
 
@@ -423,7 +433,7 @@ void FlowView::deleteSelection()
     if (selectedIndex_ == -1) return;
     shapes_.erase(shapes_.begin() + selectedIndex_);
     selectedIndex_ = -1;
-    emit shapeAttr({}, {}, -1);
+    updatePropertyPanel();
     update();
 }
 
@@ -472,9 +482,8 @@ void FlowView::setFill(const QColor& c)
     shapes_[selectedIndex_]->fillColor = c;
     update();
     
-    // �� �������������Թ㲥�����
-    auto* s = shapes_[selectedIndex_].get();
-    emit shapeAttr(s->fillColor, s->strokeColor, s->strokeWidth);
+    // 更新属性面板
+    updatePropertyPanel();
 }
 void FlowView::setStroke(const QColor& c)
 {
@@ -482,9 +491,8 @@ void FlowView::setStroke(const QColor& c)
     shapes_[selectedIndex_]->strokeColor = c;
     update();
 
-    // �� �������������Թ㲥�����
-    auto* s = shapes_[selectedIndex_].get();
-    emit shapeAttr(s->fillColor, s->strokeColor, s->strokeWidth);
+    // 更新属性面板
+    updatePropertyPanel();
 }
 void FlowView::setWidth(qreal w)
 {
@@ -492,9 +500,8 @@ void FlowView::setWidth(qreal w)
     shapes_[selectedIndex_]->strokeWidth = w;
     update();
 
-    // �� �������������Թ㲥�����
-    auto* s = shapes_[selectedIndex_].get();
-    emit shapeAttr(s->fillColor, s->strokeColor, s->strokeWidth);
+    // 更新属性面板
+    updatePropertyPanel();
 }
 
 
@@ -1091,4 +1098,64 @@ void FlowView::resizeRect(QRectF& rect, ResizeHandle handle, const QPointF& offs
     }
     
     rect = newRect;
+}
+
+// 更新属性面板显示，包括尺寸属性
+void FlowView::updatePropertyPanel()
+{
+    if (selectedIndex_ == -1) {
+        emit shapeAttr({}, {}, -1);
+        emit shapeSize(0, 0);
+        return;
+    }
+    
+    auto* shape = shapes_[selectedIndex_].get();
+    emit shapeAttr(shape->fillColor, shape->strokeColor, shape->strokeWidth);
+    
+    // 发送尺寸信息
+    int width = shape->bounds.width();
+    int height = shape->bounds.height();
+    emit shapeSize(width, height);
+}
+
+// 设置对象宽度
+void FlowView::setObjectWidth(int width)
+{
+    if (selectedIndex_ == -1 || width <= 0) return;
+    
+    // 获取当前矩形
+    auto& bounds = shapes_[selectedIndex_]->bounds;
+    
+    // 计算新宽度，保持左边缘不变
+    QRectF newBounds = bounds;
+    newBounds.setWidth(width);
+    
+    // 设置新矩形
+    shapes_[selectedIndex_]->bounds = newBounds;
+    
+    // 更新连接器
+    updateConnectorsFor(shapes_[selectedIndex_].get());
+    
+    update();
+}
+
+// 设置对象高度
+void FlowView::setObjectHeight(int height)
+{
+    if (selectedIndex_ == -1 || height <= 0) return;
+    
+    // 获取当前矩形
+    auto& bounds = shapes_[selectedIndex_]->bounds;
+    
+    // 计算新高度，保持顶边不变
+    QRectF newBounds = bounds;
+    newBounds.setHeight(height);
+    
+    // 设置新矩形
+    shapes_[selectedIndex_]->bounds = newBounds;
+    
+    // 更新连接器
+    updateConnectorsFor(shapes_[selectedIndex_].get());
+    
+    update();
 }

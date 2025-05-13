@@ -34,6 +34,16 @@ PropertyPanel::PropertyPanel(QWidget* parent) : QWidget(parent)
     shapeLay->addRow(tr("Stroke Color"), btnStroke_);
     shapeLay->addRow(tr("Line Width"), spinWidth_);
     
+    // 尺寸属性组
+    auto* sizeGroup = new QGroupBox(tr("Size Properties"), this);
+    auto* sizeLay = new QFormLayout(sizeGroup);
+    
+    spinObjectWidth_ = new QSpinBox; spinObjectWidth_->setRange(10, 1000);
+    spinObjectHeight_ = new QSpinBox; spinObjectHeight_->setRange(10, 1000);
+    
+    sizeLay->addRow(tr("Width"), spinObjectWidth_);
+    sizeLay->addRow(tr("Height"), spinObjectHeight_);
+    
     // 文本属性组
     auto* textGroup = new QGroupBox(tr("Text Properties"), this);
     auto* textLay = new QFormLayout(textGroup);
@@ -47,6 +57,7 @@ PropertyPanel::PropertyPanel(QWidget* parent) : QWidget(parent)
     
     // 添加到主布局
     mainLayout->addWidget(shapeGroup);
+    mainLayout->addWidget(sizeGroup);
     mainLayout->addWidget(textGroup);
     mainLayout->addStretch();
     
@@ -61,6 +72,12 @@ PropertyPanel::PropertyPanel(QWidget* parent) : QWidget(parent)
     });
     connect(spinWidth_, QOverload<int>::of(&QSpinBox::valueChanged),
         this, [this](int v) { emit widthChanged(v); });
+    
+    // 尺寸属性信号连接
+    connect(spinObjectWidth_, QOverload<int>::of(&QSpinBox::valueChanged),
+        this, [this](int v) { emit objectWidthChanged(v); });
+    connect(spinObjectHeight_, QOverload<int>::of(&QSpinBox::valueChanged),
+        this, [this](int v) { emit objectHeightChanged(v); });
         
     // 文本属性信号连接
     connect(btnTextColor_, &QPushButton::clicked, this, [this] {
@@ -80,6 +97,8 @@ void PropertyPanel::load(const QColor& fill, const QColor& stroke, qreal width)
     spinWidth_->setEnabled(hasSel);
     btnTextColor_->setEnabled(hasSel);
     spinTextSize_->setEnabled(hasSel);
+    spinObjectWidth_->setEnabled(hasSel);
+    spinObjectHeight_->setEnabled(hasSel);
 
     if (!hasSel) {                       // 灰度显示
         setColorButton(btnFill_, {});
@@ -92,6 +111,14 @@ void PropertyPanel::load(const QColor& fill, const QColor& stroke, qreal width)
         spinTextSize_->blockSignals(true);
         spinTextSize_->setValue(10);
         spinTextSize_->blockSignals(false);
+        
+        spinObjectWidth_->blockSignals(true);
+        spinObjectWidth_->setValue(100);
+        spinObjectWidth_->blockSignals(false);
+        
+        spinObjectHeight_->blockSignals(true);
+        spinObjectHeight_->setValue(100);
+        spinObjectHeight_->blockSignals(false);
         return;
     }
 
@@ -110,4 +137,15 @@ void PropertyPanel::loadText(const QString& text, const QColor& textColor, int f
     spinTextSize_->blockSignals(true);
     spinTextSize_->setValue(fontSize > 0 ? fontSize : 10);
     spinTextSize_->blockSignals(false);
+}
+
+void PropertyPanel::loadSize(int width, int height)
+{
+    spinObjectWidth_->blockSignals(true);
+    spinObjectWidth_->setValue(width);
+    spinObjectWidth_->blockSignals(false);
+    
+    spinObjectHeight_->blockSignals(true);
+    spinObjectHeight_->setValue(height);
+    spinObjectHeight_->blockSignals(false);
 }

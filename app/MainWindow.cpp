@@ -214,6 +214,8 @@ MainWindow::MainWindow(QWidget* parent)
     /* FlowView ⇄ PropertyPanel 双向绑定 */
     connect(view, &FlowView::shapeAttr,
         propPanel, &PropertyPanel::load);
+    connect(view, &FlowView::shapeSize,
+        propPanel, &PropertyPanel::loadSize);
 
     connect(propPanel, &PropertyPanel::fillChanged,
         view, &FlowView::setFill);
@@ -221,6 +223,12 @@ MainWindow::MainWindow(QWidget* parent)
         view, &FlowView::setStroke);
     connect(propPanel, &PropertyPanel::widthChanged,
         view, &FlowView::setWidth);
+    
+    // 对象尺寸属性绑定
+    connect(propPanel, &PropertyPanel::objectWidthChanged,
+        view, &FlowView::setObjectWidth);
+    connect(propPanel, &PropertyPanel::objectHeightChanged,
+        view, &FlowView::setObjectHeight);
     
     // 文本属性绑定
     connect(propPanel, &PropertyPanel::textColorChanged,

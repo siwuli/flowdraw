@@ -14,6 +14,7 @@ class FlowView : public QWidget
 
 signals:
     void shapeAttr(const QColor& fill, const QColor& stroke, qreal width);
+    void shapeSize(int width, int height);  // 新增形状尺寸信号
 
 public:
     explicit FlowView(QWidget* parent = nullptr);
@@ -59,6 +60,10 @@ public slots:
     void setTextColor(const QColor& c);
     void setTextSize(int size);
     void setText(const QString& text);
+    
+    // 对象尺寸设置
+    void setObjectWidth(int width);
+    void setObjectHeight(int height);
 
     void updateConnectorsFor(Shape* movedShape);
 
@@ -110,6 +115,9 @@ protected:
     ResizeHandle hitTestResizeHandles(const QPointF& docPoint, const QRectF& rect);
     // 调整矩形大小
     void resizeRect(QRectF& rect, ResizeHandle handle, const QPointF& offset);
+    
+    // 更新属性面板显示
+    void updatePropertyPanel();
 
 private:
     /* ---------- 数据成员 ---------- */

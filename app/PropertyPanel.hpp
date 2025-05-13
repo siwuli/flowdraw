@@ -18,6 +18,9 @@ public:
     
     // 加载文本属性
     void loadText(const QString& text, const QColor& textColor, int fontSize);
+    
+    // 加载对象尺寸属性
+    void loadSize(int width, int height);
 
 signals:
     void fillChanged(const QColor&);
@@ -26,6 +29,9 @@ signals:
     void textChanged(const QString&);
     void textColorChanged(const QColor&);
     void textSizeChanged(int);
+    // 对象尺寸变化信号
+    void objectWidthChanged(int);
+    void objectHeightChanged(int);
 
 private:
     QPushButton* btnFill_;
@@ -34,4 +40,8 @@ private:
     
     QPushButton* btnTextColor_;
     QSpinBox* spinTextSize_;
+    
+    // 对象尺寸微调控件
+    QSpinBox* spinObjectWidth_;
+    QSpinBox* spinObjectHeight_;
 };
