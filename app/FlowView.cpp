@@ -601,7 +601,7 @@ void FlowView::dropEvent(QDropEvent* e)
     shapes_.push_back(std::move(s));
     
     // 选中新放置的图形
-    selectedIndex_ = shapes_.size() - 1;
+    selectedIndex_ = static_cast<int>(shapes_.size() - 1);
     
     // 记录图形创建历史
     QJsonObject shapeState = shapes_[selectedIndex_]->toJson();
@@ -626,7 +626,7 @@ void FlowView::contextMenuEvent(QContextMenuEvent* e)
     if (selectedConnectorIndex_ == -1) {
         // 查找点击的图形
         selectedIndex_ = -1;
-        for (int i = shapes_.size() - 1; i >= 0; --i) {
+        for (int i = static_cast<int>(shapes_.size()) - 1; i >= 0; --i) {
             if (shapes_[i]->hitTest(docPos)) {
                 selectedIndex_ = i;
                 break;
@@ -676,12 +676,12 @@ void FlowView::contextMenuEvent(QContextMenuEvent* e)
             // 添加删除连接线选项
             QAction* actDeleteConn = menu.addAction(tr("Delete Connection"));
             connect(actDeleteConn, &QAction::triggered, this, [this]() {
-                if (selectedConnectorIndex_ >= 0 && selectedConnectorIndex_ < connectors_.size()) {
+                if (selectedConnectorIndex_ >= 0 && selectedConnectorIndex_ < static_cast<int>(connectors_.size())) {
                     // 找出连接线的源和目标图形索引
                     int srcIndex = -1, dstIndex = -1;
                     for (size_t i = 0; i < shapes_.size(); ++i) {
-                        if (shapes_[i].get() == connectors_[selectedConnectorIndex_].src) srcIndex = i;
-                        if (shapes_[i].get() == connectors_[selectedConnectorIndex_].dst) dstIndex = i;
+                        if (shapes_[i].get() == connectors_[selectedConnectorIndex_].src) srcIndex = static_cast<int>(i);
+                        if (shapes_[i].get() == connectors_[selectedConnectorIndex_].dst) dstIndex = static_cast<int>(i);
                     }
                     
                     // 记录删除连接线历史
@@ -788,8 +788,8 @@ void FlowView::deleteSelection()
         // 记录删除连接线前，首先找出连接线的源和目标图形索引
         int srcIndex = -1, dstIndex = -1;
         for (size_t i = 0; i < shapes_.size(); ++i) {
-            if (shapes_[i].get() == connectors_[selectedConnectorIndex_].src) srcIndex = i;
-            if (shapes_[i].get() == connectors_[selectedConnectorIndex_].dst) dstIndex = i;
+            if (shapes_[i].get() == connectors_[selectedConnectorIndex_].src) srcIndex = static_cast<int>(i);
+            if (shapes_[i].get() == connectors_[selectedConnectorIndex_].dst) dstIndex = static_cast<int>(i);
         }
         
         // 记录删除连接线操作
@@ -809,41 +809,97 @@ void FlowView::deleteSelection()
 void FlowView::bringToFront()
 {
     if (selectedIndex_ == -1) return;
+    
+    // 记录操作前的状态（原来的位置索引）
+    QJsonObject before;
+    before["index"] = selectedIndex_;
+    
     auto tmp = std::move(shapes_[selectedIndex_]);
     shapes_.erase(shapes_.begin() + selectedIndex_);
     shapes_.push_back(std::move(tmp));
-    selectedIndex_ = shapes_.size() - 1;
+    
+    // 记录操作后的状态（新的位置索引）
+    QJsonObject after;
+    after["index"] = static_cast<int>(shapes_.size() - 1);
+    
+    // 记录层级操作
+    recordAction(ActionType::ZOrder, selectedIndex_, before, after);
+    
+    selectedIndex_ = static_cast<int>(shapes_.size() - 1);
     update();
 }
 
 void FlowView::sendToBack()
 {
     if (selectedIndex_ == -1) return;
+    
+    // 记录操作前的状态（原来的位置索引）
+    QJsonObject before;
+    before["index"] = selectedIndex_;
+    
     auto tmp = std::move(shapes_[selectedIndex_]);
     shapes_.erase(shapes_.begin() + selectedIndex_);
     shapes_.insert(shapes_.begin(), std::move(tmp));
+    
+    // 记录操作后的状态（新的位置索引）
+    QJsonObject after;
+    after["index"] = 0;
+    
+    // 记录层级操作
+    recordAction(ActionType::ZOrder, selectedIndex_, before, after);
+    
     selectedIndex_ = 0;
     update();
 }
 
 void FlowView::moveUp()
 {
-    if (selectedIndex_ == -1 || selectedIndex_ + 1 >= shapes_.size()) return;
-    std::swap(shapes_[selectedIndex_], shapes_[selectedIndex_ + 1]);
-    ++selectedIndex_;
+    if (selectedIndex_ == -1 || selectedIndex_ == static_cast<int>(shapes_.size() - 1)) return;
+    
+    // 记录操作前的状态（原来的位置索引）
+    QJsonObject before;
+    before["index"] = selectedIndex_;
+    
+    auto tmp = std::move(shapes_[selectedIndex_]);
+    shapes_.erase(shapes_.begin() + selectedIndex_);
+    shapes_.insert(shapes_.begin() + selectedIndex_ + 1, std::move(tmp));
+    
+    // 记录操作后的状态（新的位置索引）
+    QJsonObject after;
+    after["index"] = selectedIndex_ + 1;
+    
+    // 记录层级操作
+    recordAction(ActionType::ZOrder, selectedIndex_, before, after);
+    
+    selectedIndex_++;
     update();
 }
 
 void FlowView::moveDown()
 {
     if (selectedIndex_ <= 0) return;
-    std::swap(shapes_[selectedIndex_], shapes_[selectedIndex_ - 1]);
-    --selectedIndex_;
+    
+    // 记录操作前的状态（原来的位置索引）
+    QJsonObject before;
+    before["index"] = selectedIndex_;
+    
+    auto tmp = std::move(shapes_[selectedIndex_]);
+    shapes_.erase(shapes_.begin() + selectedIndex_);
+    shapes_.insert(shapes_.begin() + selectedIndex_ - 1, std::move(tmp));
+    
+    // 记录操作后的状态（新的位置索引）
+    QJsonObject after;
+    after["index"] = selectedIndex_ - 1;
+    
+    // 记录层级操作
+    recordAction(ActionType::ZOrder, selectedIndex_, before, after);
+    
+    selectedIndex_--;
     update();
 }
 
 
-//ʵ������ setter slot
+//ʵ setter slot
 void FlowView::setFill(const QColor& c)
 {
     if (selectedIndex_ != -1) {
@@ -878,30 +934,64 @@ void FlowView::setWidth(qreal w)
 
 void FlowView::updateConnectorsFor(Shape* movedShape)
 {
-    for (auto& c : connectors_) {
-        if (c.src == movedShape || c.dst == movedShape) {
-            // ֻ�败���ػ漴�ɣ����������� paint() ʱ���¼���
+    if (!movedShape) return;
+    
+    for (auto& conn : connectors_) {
+        if (conn.src == movedShape || conn.dst == movedShape) {
+            // 连接线的起点或终点被移动，随之更新连接线
+            // 注意：这里不需要做任何事情，因为Connector类在绘制时
+            // 会自动根据图形的位置计算连接点
         }
     }
 }
 
 void FlowView::mouseDoubleClickEvent(QMouseEvent* e)
 {
-    if (e->button() == Qt::LeftButton) {
-        // 检查是否点击了某个形状
-        for (int i = shapes_.size() - 1; i >= 0; --i) {
-            if (shapes_[i]->hitTest(e->pos())) {
-                selectedIndex_ = i;
-                // 打开文本编辑对话框
-                TextEditDialog dialog(this, shapes_[i]->text);
-                if (dialog.exec() == QDialog::Accepted) {
-                    shapes_[i]->text = dialog.getText();
-                    update();
-                }
-                break;
-            }
+    // 将视图坐标转换为文档坐标
+    QPointF docPos = viewToDoc(e->pos());
+    
+    // 如果双击了已选中的图形，弹出文本编辑对话框
+    if (selectedIndex_ != -1 && shapes_[selectedIndex_]->hitTest(docPos)) {
+        TextEditDialog dlg(this);
+        dlg.setText(shapes_[selectedIndex_]->text);
+        dlg.setTextColor(shapes_[selectedIndex_]->textColor);
+        dlg.setTextSize(shapes_[selectedIndex_]->textSize);
+        
+        if (dlg.exec() == QDialog::Accepted) {
+            // 保存修改前的状态
+            QJsonObject stateBefore = shapes_[selectedIndex_]->toJson();
+            
+            // 应用新文本
+            shapes_[selectedIndex_]->text = dlg.getText();
+            shapes_[selectedIndex_]->textColor = dlg.getTextColor();
+            shapes_[selectedIndex_]->textSize = dlg.getTextSize();
+            
+            // 记录修改历史
+            QJsonObject stateAfter = shapes_[selectedIndex_]->toJson();
+            recordAction(ActionType::Property, selectedIndex_, stateBefore, stateAfter);
+            
+            update();
         }
+        return;
     }
+    
+    // 如果双击了连接线，弹出连接线样式对话框
+    int connIndex = hitTestConnector(docPos);
+    if (connIndex >= 0 && connIndex < static_cast<int>(connectors_.size())) {
+        selectedConnectorIndex_ = connIndex;
+        
+        // 弹出颜色选择器
+        QColor color = QColorDialog::getColor(connectors_[connIndex].color, this, tr("Select Connector Color"));
+        if (color.isValid()) {
+            setConnectorColor(color);
+        }
+        
+        update();
+        return;
+    }
+    
+    // 默认处理
+    QWidget::mouseDoubleClickEvent(e);
 }
 
 // 添加文本颜色设置
@@ -1627,7 +1717,7 @@ int FlowView::hitTestConnector(const QPointF& pt) const
 {
     const double hitDistance = 12.0; // 增大点击误差范围，更容易选中(从8.0改为12.0)
     
-    for (int i = 0; i < connectors_.size(); ++i) {
+    for (int i = 0; i < static_cast<int>(connectors_.size()); ++i) {
         const Connector& conn = connectors_[i];
         if (!conn.src || !conn.dst) continue;
         
@@ -1930,7 +2020,7 @@ void FlowView::undo()
                 }
             }
             break;
-            
+        
         case ActionType::Move:
         case ActionType::Resize:
         case ActionType::Property:
@@ -1948,15 +2038,55 @@ void FlowView::undo()
                 
                 if (s) {
                     s->fromJson(record.stateBefore);
+                    Shape* oldShape = shapes_[record.elementIndex].get();
                     shapes_[record.elementIndex] = std::move(s);
+                    
+                    // 更新所有指向这个图形的连接线
+                    for (auto& conn : connectors_) {
+                        if (conn.src == oldShape) {
+                            conn.src = shapes_[record.elementIndex].get();
+                        }
+                        if (conn.dst == oldShape) {
+                            conn.dst = shapes_[record.elementIndex].get();
+                        }
+                    }
                 }
+            } else if (record.elementIndex >= 0 && record.elementIndex < connectors_.size()) {
+                // 处理连接线属性的撤销
+                if (record.stateBefore.contains("color"))
+                    connectors_[record.elementIndex].color = QColor(record.stateBefore["color"].toString());
+                if (record.stateBefore.contains("width"))
+                    connectors_[record.elementIndex].width = record.stateBefore["width"].toDouble(2.0);
+                if (record.stateBefore.contains("bidirectional"))
+                    connectors_[record.elementIndex].bidirectional = record.stateBefore["bidirectional"].toBool();
+                
+                // 如果源和目标发生了变化
+                if (record.srcIndex >= 0 && record.srcIndex < shapes_.size())
+                    connectors_[record.elementIndex].src = shapes_[record.srcIndex].get();
+                if (record.dstIndex >= 0 && record.dstIndex < shapes_.size())
+                    connectors_[record.elementIndex].dst = shapes_[record.dstIndex].get();
             }
             break;
             
         case ActionType::ZOrder:
-            // 撤销层级调整操作 - 较复杂，需从整体上重建图形序列
-            // 这里简化处理，仅对单个元素位置变化进行处理
-            // TODO: 实现更复杂的层级撤销
+            // 撤销层级调整操作
+            if (record.stateBefore.contains("index") && record.stateAfter.contains("index")) {
+                int oldIndex = record.stateBefore["index"].toInt();
+                int newIndex = record.stateAfter["index"].toInt();
+                
+                if (newIndex >= 0 && newIndex < shapes_.size()) {
+                    // 将图形从当前位置移回原来的位置
+                    auto tmp = std::move(shapes_[newIndex]);
+                    shapes_.erase(shapes_.begin() + newIndex);
+                    
+                    // 确保oldIndex在有效范围内
+                    int insertPos = qBound(0, oldIndex, static_cast<int>(shapes_.size()));
+                    shapes_.insert(shapes_.begin() + insertPos, std::move(tmp));
+                    
+                    // 更新选中索引
+                    selectedIndex_ = insertPos;
+                }
+            }
             break;
             
         case ActionType::AddConn:
@@ -2074,14 +2204,55 @@ void FlowView::redo()
                 
                 if (s) {
                     s->fromJson(record.stateAfter);
+                    Shape* oldShape = shapes_[record.elementIndex].get();
                     shapes_[record.elementIndex] = std::move(s);
+                    
+                    // 更新所有指向这个图形的连接线
+                    for (auto& conn : connectors_) {
+                        if (conn.src == oldShape) {
+                            conn.src = shapes_[record.elementIndex].get();
+                        }
+                        if (conn.dst == oldShape) {
+                            conn.dst = shapes_[record.elementIndex].get();
+                        }
+                    }
                 }
+            } else if (record.elementIndex >= 0 && record.elementIndex < connectors_.size()) {
+                // 处理连接线属性的重做
+                if (record.stateAfter.contains("color"))
+                    connectors_[record.elementIndex].color = QColor(record.stateAfter["color"].toString());
+                if (record.stateAfter.contains("width"))
+                    connectors_[record.elementIndex].width = record.stateAfter["width"].toDouble(2.0);
+                if (record.stateAfter.contains("bidirectional"))
+                    connectors_[record.elementIndex].bidirectional = record.stateAfter["bidirectional"].toBool();
+                
+                // 如果源和目标发生了变化
+                if (record.srcIndex >= 0 && record.srcIndex < shapes_.size())
+                    connectors_[record.elementIndex].src = shapes_[record.srcIndex].get();
+                if (record.dstIndex >= 0 && record.dstIndex < shapes_.size())
+                    connectors_[record.elementIndex].dst = shapes_[record.dstIndex].get();
             }
             break;
             
         case ActionType::ZOrder:
             // 重做层级调整操作
-            // TODO: 实现更复杂的层级重做
+            if (record.stateBefore.contains("index") && record.stateAfter.contains("index")) {
+                int oldIndex = record.stateBefore["index"].toInt();
+                int newIndex = record.stateAfter["index"].toInt();
+                
+                if (oldIndex >= 0 && oldIndex < shapes_.size()) {
+                    // 将图形从原来位置移动到新位置
+                    auto tmp = std::move(shapes_[oldIndex]);
+                    shapes_.erase(shapes_.begin() + oldIndex);
+                    
+                    // 确保newIndex在有效范围内
+                    int insertPos = qBound(0, newIndex, static_cast<int>(shapes_.size()));
+                    shapes_.insert(shapes_.begin() + insertPos, std::move(tmp));
+                    
+                    // 更新选中索引
+                    selectedIndex_ = insertPos;
+                }
+            }
             break;
             
         case ActionType::AddConn:
