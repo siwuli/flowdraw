@@ -10,15 +10,25 @@ void Connector::drawArrow(QPainter& p, const QPointF& from, const QPointF& to) c
 {
     QLineF line(from, to);
     constexpr double arrowSize = 14;
-    double angle = std::atan2(-line.dy(), line.dx());
+    
+    // 计算连接线的方向角度
+    // 注意: 在Qt的坐标系统中, Y轴向下为正, 所以需要反转Y值来计算正确的角度
+    double angle = std::atan2(line.dy(), line.dx());
+    
+    // 创建尖锐的三角形箭头，方向沿着连接线
+    // 左侧翼点
+    QPointF p1 = to - QPointF(
+        std::cos(angle) * arrowSize + std::sin(angle) * arrowSize/2,
+        std::sin(angle) * arrowSize - std::cos(angle) * arrowSize/2
+    );
+    
+    // 右侧翼点
+    QPointF p2 = to - QPointF(
+        std::cos(angle) * arrowSize - std::sin(angle) * arrowSize/2,
+        std::sin(angle) * arrowSize + std::cos(angle) * arrowSize/2
+    );
 
-    // 创建尖锐的三角形箭头
-    QPointF p1 = to + QPointF(std::sin(angle + M_PI / 3.0) * arrowSize,
-        std::cos(angle + M_PI / 3.0) * arrowSize);
-    QPointF p2 = to + QPointF(std::sin(angle - M_PI / 3.0) * arrowSize,
-        std::cos(angle - M_PI / 3.0) * arrowSize);
-
-    // 三角形箭头 (移除曲线部分，不使用中间点)
+    // 三角形箭头
     QPolygonF head;
     head << to << p1 << p2;
     
