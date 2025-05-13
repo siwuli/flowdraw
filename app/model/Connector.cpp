@@ -3,6 +3,9 @@
 
 QPointF Connector::anchorPoint(const Shape* s, const QPointF& ref) const
 {
+    if (s == nullptr) {
+        return ref; // 如果Shape指针为空，则返回参考点
+    }
     return s->getConnectionPoint(ref);
 }
 

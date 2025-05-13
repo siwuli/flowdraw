@@ -455,8 +455,21 @@ void FlowView::mouseReleaseEvent(QMouseEvent* event)
         // 如果找到了终点，添加这条连接线
         if (currentConn_.dst)
         {
+            // 保存当前连接线的源和目标索引
+            int srcIndex = -1, dstIndex = -1;
+            for (size_t i = 0; i < shapes_.size(); ++i) {
+                if (shapes_[i].get() == currentConn_.src) srcIndex = i;
+                if (shapes_[i].get() == currentConn_.dst) dstIndex = i;
+            }
+            
+            // 添加连接线
             connectors_.push_back(currentConn_);
-            // 重置连接线状态
+            int connIndex = connectors_.size() - 1;
+            
+            // 记录连接线创建历史
+            recordConnectorAction(ActionType::AddConn, connIndex, srcIndex, dstIndex);
+            
+            // 重置当前连接线
             currentConn_ = Connector{};
             
             // 连线完成后，退出连接器模式
@@ -495,6 +508,10 @@ void FlowView::mouseReleaseEvent(QMouseEvent* event)
                 r.setBottom(r.top() - r.height());
             }
             
+            // 记录图形创建历史
+            QJsonObject shapeState = shapes_[selectedIndex_]->toJson();
+            recordAction(ActionType::Add, selectedIndex_, QJsonObject(), shapeState);
+            
             // 绘制完成后，切换回选择工具
             mode_ = ToolMode::None;
             setCursor(Qt::ArrowCursor);
@@ -510,8 +527,17 @@ void FlowView::mouseReleaseEvent(QMouseEvent* event)
         if (docPos.x() < 0 || docPos.y() < 0 || 
             docPos.x() > pageSize_.width() || docPos.y() > pageSize_.height())
         {
+            // 记录删除前的状态
+            QJsonObject stateBefore = shapes_[selectedIndex_]->toJson();
+            int index = selectedIndex_;
+            
+            // 执行删除
             shapes_.erase(shapes_.begin() + selectedIndex_);
             selectedIndex_ = -1;
+            
+            // 记录删除操作
+            recordAction(ActionType::Delete, index, stateBefore, QJsonObject());
+            
             update();
         }
     }
@@ -576,6 +602,11 @@ void FlowView::dropEvent(QDropEvent* e)
     
     // 选中新放置的图形
     selectedIndex_ = shapes_.size() - 1;
+    
+    // 记录图形创建历史
+    QJsonObject shapeState = shapes_[selectedIndex_]->toJson();
+    recordAction(ActionType::Add, selectedIndex_, QJsonObject(), shapeState);
+    
     updatePropertyPanel();
     
     update();
@@ -646,6 +677,18 @@ void FlowView::contextMenuEvent(QContextMenuEvent* e)
             QAction* actDeleteConn = menu.addAction(tr("Delete Connection"));
             connect(actDeleteConn, &QAction::triggered, this, [this]() {
                 if (selectedConnectorIndex_ >= 0 && selectedConnectorIndex_ < connectors_.size()) {
+                    // 找出连接线的源和目标图形索引
+                    int srcIndex = -1, dstIndex = -1;
+                    for (size_t i = 0; i < shapes_.size(); ++i) {
+                        if (shapes_[i].get() == connectors_[selectedConnectorIndex_].src) srcIndex = i;
+                        if (shapes_[i].get() == connectors_[selectedConnectorIndex_].dst) dstIndex = i;
+                    }
+                    
+                    // 记录删除连接线历史
+                    int index = selectedConnectorIndex_;
+                    recordConnectorAction(ActionType::DeleteConn, index, srcIndex, dstIndex);
+                    
+                    // 执行删除
                     connectors_.erase(connectors_.begin() + selectedConnectorIndex_);
                     selectedConnectorIndex_ = -1;
                     update();
