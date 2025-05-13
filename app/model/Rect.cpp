@@ -26,6 +26,62 @@ bool Rect::hitTest(const QPointF& pt) const
     return bounds.contains(pt);
 }
 
+QPointF Rect::getConnectionPoint(const QPointF& ref) const
+{
+    // 获取矩形的中心点
+    QPointF center = bounds.center();
+    
+    // 计算参考点到矩形中心的方向向量
+    QPointF direction = ref - center;
+    
+    // 如果方向向量为零，直接返回中心点
+    if (direction.isNull()) {
+        return center;
+    }
+    
+    // 矩形的四条边
+    double left = bounds.left();
+    double right = bounds.right();
+    double top = bounds.top();
+    double bottom = bounds.bottom();
+    
+    // 寻找与射线相交的边
+    // 计算交点比例
+    double dx = direction.x();
+    double dy = direction.y();
+    
+    // 初始化四个可能的交点位置参数
+    double tx1 = dx != 0 ? (left - center.x()) / dx : -1;
+    double tx2 = dx != 0 ? (right - center.x()) / dx : -1;
+    double ty1 = dy != 0 ? (top - center.y()) / dy : -1;
+    double ty2 = dy != 0 ? (bottom - center.y()) / dy : -1;
+    
+    // 筛选出有效的交点位置参数（大于0表示从中心点向外）
+    QList<double> validT;
+    if (tx1 > 0) validT.append(tx1);
+    if (tx2 > 0) validT.append(tx2);
+    if (ty1 > 0) validT.append(ty1);
+    if (ty2 > 0) validT.append(ty2);
+    
+    // 取最小的有效交点位置参数，即最近的交点
+    if (!validT.isEmpty()) {
+        double tMin = *std::min_element(validT.begin(), validT.end());
+        return center + direction * tMin;
+    }
+    
+    // 如果没有有效交点（不应该发生），返回最近的边缘点
+    QPointF nearestPoint = center;
+    if (qAbs(direction.x()) > qAbs(direction.y())) {
+        // 水平方向为主
+        nearestPoint.setX(direction.x() > 0 ? right : left);
+    } else {
+        // 垂直方向为主
+        nearestPoint.setY(direction.y() > 0 ? bottom : top);
+    }
+    
+    return nearestPoint;
+}
+
 QJsonObject Rect::toJson() const
 {
     return QJsonObject{

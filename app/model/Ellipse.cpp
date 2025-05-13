@@ -28,6 +28,35 @@ bool Ellipse::hitTest(const QPointF& pt) const
     return dx * dx + dy * dy <= 1.0;
 }
 
+QPointF Ellipse::getConnectionPoint(const QPointF& ref) const
+{
+    // 获取椭圆中心点
+    QPointF center = bounds.center();
+    
+    // 计算参考点到椭圆中心的方向向量
+    QPointF direction = ref - center;
+    
+    // 如果方向向量为零，直接返回中心点
+    if (direction.isNull()) {
+        return center;
+    }
+    
+    // 椭圆的半径
+    double a = bounds.width() / 2.0;  // 水平半径
+    double b = bounds.height() / 2.0; // 垂直半径
+    
+    // 计算方向向量的角度
+    double angle = std::atan2(direction.y(), direction.x());
+    
+    // 根据椭圆方程计算交点
+    // x = a * cos(t), y = b * sin(t)
+    // 连接点坐标
+    double x = center.x() + a * std::cos(angle);
+    double y = center.y() + b * std::sin(angle);
+    
+    return QPointF(x, y);
+}
+
 QJsonObject Ellipse::toJson() const
 {
     return QJsonObject{
