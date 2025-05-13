@@ -22,6 +22,12 @@ public:
     // 加载对象尺寸属性
     void loadSize(int width, int height);
 
+public slots:
+    // 加载文本颜色
+    void updateTextColor(const QColor& color);
+    // 加载文本大小
+    void updateTextSize(int size);
+
 signals:
     void fillChanged(const QColor&);
     void strokeChanged(const QColor&);

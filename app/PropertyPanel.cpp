@@ -149,3 +149,21 @@ void PropertyPanel::loadSize(int width, int height)
     spinObjectHeight_->setValue(height);
     spinObjectHeight_->blockSignals(false);
 }
+
+// 文本颜色改变槽函数
+void PropertyPanel::updateTextColor(const QColor& color)
+{
+    if (color.isValid()) {
+        setColorButton(btnTextColor_, color);
+    }
+}
+
+// 文本大小改变槽函数
+void PropertyPanel::updateTextSize(int size)
+{
+    if (size > 0) {
+        spinTextSize_->blockSignals(true);
+        spinTextSize_->setValue(size);
+        spinTextSize_->blockSignals(false);
+    }
+}

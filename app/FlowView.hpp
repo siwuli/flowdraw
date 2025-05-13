@@ -15,6 +15,8 @@ class FlowView : public QWidget
 signals:
     void shapeAttr(const QColor& fill, const QColor& stroke, qreal width);
     void shapeSize(int width, int height);  // 新增形状尺寸信号
+    void textColorChanged(const QColor& color);  // 文本颜色变化信号
+    void textSizeChanged(int size);  // 文本大小变化信号
 
 public:
     explicit FlowView(QWidget* parent = nullptr);

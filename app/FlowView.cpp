@@ -767,6 +767,8 @@ void FlowView::setTextColor(const QColor& c)
 {
     if (selectedIndex_ == -1 || !c.isValid()) return;
     shapes_[selectedIndex_]->textColor = c;
+    // 更新属性面板显示
+    updatePropertyPanel();
     update();
 }
 
@@ -775,6 +777,8 @@ void FlowView::setTextSize(int size)
 {
     if (selectedIndex_ == -1 || size <= 0) return;
     shapes_[selectedIndex_]->textSize = size;
+    // 更新属性面板显示
+    updatePropertyPanel();
     update();
 }
 
@@ -1369,6 +1373,11 @@ void FlowView::updatePropertyPanel()
         int width = shape->bounds.width();
         int height = shape->bounds.height();
         emit shapeSize(width, height);
+        
+        // 发送文本属性信息
+        emit textColorChanged(shape->textColor);
+        emit textSizeChanged(shape->textSize);
+        
         return;
     }
     

@@ -349,6 +349,11 @@ MainWindow::MainWindow(QWidget* parent)
         propPanel, &PropertyPanel::load);
     connect(view, &FlowView::shapeSize,
         propPanel, &PropertyPanel::loadSize);
+    // 文本属性信号连接
+    connect(view, &FlowView::textColorChanged,
+        propPanel, &PropertyPanel::updateTextColor);
+    connect(view, &FlowView::textSizeChanged,
+        propPanel, &PropertyPanel::updateTextSize);
 
     connect(propPanel, &PropertyPanel::fillChanged,
         view, &FlowView::setFill);
