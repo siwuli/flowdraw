@@ -29,11 +29,11 @@ MainWindow::MainWindow(QWidget* parent)
 
     /* ---------- Menu ---------- */
     auto fileMenu = menuBar()->addMenu(tr("File"));
-    fileMenu->addAction(tr("New"), this, [this, view]() {
+    fileMenu->addAction(tr("New\tCtrl+N"), this, [this, view]() {
         view->clearAll();
     });
     
-    fileMenu->addAction(tr("Open"), this, [this, view]() {
+    fileMenu->addAction(tr("Open\tCtrl+O"), this, [this, view]() {
         QString filename = QFileDialog::getOpenFileName(
             this, tr("Open Flowchart"), QString(), 
             tr("Flowchart Files (*.flow);;All Files (*.*)"));
@@ -44,7 +44,7 @@ MainWindow::MainWindow(QWidget* parent)
         }
     });
     
-    fileMenu->addAction(tr("Save"), this, [this, view]() {
+    fileMenu->addAction(tr("Save\tCtrl+S"), this, [this, view]() {
         QString filename = QFileDialog::getSaveFileName(
             this, tr("Save Flowchart"), QString(), 
             tr("Flowchart Files (*.flow)"));
@@ -82,16 +82,16 @@ MainWindow::MainWindow(QWidget* parent)
     editMenu->addAction(tr("Undo"));
     editMenu->addAction(tr("Redo"));
     editMenu->addSeparator();
-    editMenu->addAction(tr("Copy"), view, &FlowView::copySelection);
-    editMenu->addAction(tr("Cut"), view, &FlowView::cutSelection);
-    editMenu->addAction(tr("Paste"), view, &FlowView::pasteClipboard);
-    editMenu->addAction(tr("Delete"), view, &FlowView::deleteSelection);
+    editMenu->addAction(tr("Copy\tCtrl+C"), view, &FlowView::copySelection);
+    editMenu->addAction(tr("Cut\tCtrl+X"), view, &FlowView::cutSelection);
+    editMenu->addAction(tr("Paste\tCtrl+V"), view, &FlowView::pasteClipboard);
+    editMenu->addAction(tr("Delete\tDel"), view, &FlowView::deleteSelection);
     
     auto arrangeMenu = menuBar()->addMenu(tr("Arrange"));
-    arrangeMenu->addAction(tr("Bring to Front"), view, &FlowView::bringToFront);
-    arrangeMenu->addAction(tr("Send to Back"), view, &FlowView::sendToBack);
-    arrangeMenu->addAction(tr("Move Up"), view, &FlowView::moveUp);
-    arrangeMenu->addAction(tr("Move Down"), view, &FlowView::moveDown);
+    arrangeMenu->addAction(tr("Bring to Front\tCtrl+]"), view, &FlowView::bringToFront);
+    arrangeMenu->addAction(tr("Send to Back\tCtrl+["), view, &FlowView::sendToBack);
+    arrangeMenu->addAction(tr("Move Up\tCtrl+Up"), view, &FlowView::moveUp);
+    arrangeMenu->addAction(tr("Move Down\tCtrl+Down"), view, &FlowView::moveDown);
     
     auto pageMenu = menuBar()->addMenu(tr("Page"));
     pageMenu->addAction(tr("Background Color"), this, [this, view]() {
@@ -432,5 +432,28 @@ MainWindow::MainWindow(QWidget* parent)
     new QShortcut(QKeySequence("Ctrl+-"), view, SLOT(zoomOut()));
     new QShortcut(QKeySequence("Ctrl+0"), view, SLOT(resetZoom()));
     new QShortcut(QKeySequence("Ctrl+F"), view, SLOT(fitToWindow()));
+    
+    // 添加文件操作快捷键
+    new QShortcut(QKeySequence("Ctrl+N"), this, [this, view]() { view->clearAll(); });
+    new QShortcut(QKeySequence("Ctrl+O"), this, [this, view]() {
+        QString filename = QFileDialog::getOpenFileName(
+            this, tr("Open Flowchart"), QString(), 
+            tr("Flowchart Files (*.flow);;All Files (*.*)"));
+        if (!filename.isEmpty()) {
+            if (!view->loadFromFile(filename)) {
+                QMessageBox::warning(this, tr("Error"), tr("Cannot open file"));
+            }
+        }
+    });
+    new QShortcut(QKeySequence("Ctrl+S"), this, [this, view]() {
+        QString filename = QFileDialog::getSaveFileName(
+            this, tr("Save Flowchart"), QString(), 
+            tr("Flowchart Files (*.flow)"));
+        if (!filename.isEmpty()) {
+            if (!view->saveToFile(filename)) {
+                QMessageBox::warning(this, tr("Error"), tr("Cannot save file"));
+            }
+        }
+    });
 }
 
