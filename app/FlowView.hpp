@@ -20,7 +20,7 @@ public:
     explicit FlowView(QWidget* parent = nullptr);
 
     /* ---------- 工具模式 ---------- */
-    enum class ToolMode { None, DrawRect, DrawEllipse, DrawDiamond, DrawConnector, DrawTriangle };
+    enum class ToolMode { None, DrawRect, DrawEllipse, DrawDiamond, DrawConnector, DrawTriangle, DrawPentagon };
     void setToolMode(ToolMode m);
 
     /* ---------- 文件操作 ---------- */

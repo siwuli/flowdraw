@@ -6,5 +6,6 @@
         <file>icons/connector.svg</file>
         <file>icons/diamond.svg</file>
         <file>icons/triangle.svg</file>
+        <file>icons/pentagon.svg</file>
     </qresource>
 </RCC> 

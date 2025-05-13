@@ -20,6 +20,8 @@
 #include "model/TextEditDialog.hpp"
 #include "model/Diamond.hpp"
 #include "model/Triangle.hpp"
+#include "model/Ellipse.hpp"
+#include "model/Pentagon.hpp"
 
 /* =====  ===== */
 FlowView::FlowView(QWidget* parent)
@@ -142,6 +144,15 @@ void FlowView::mousePressEvent(QMouseEvent* e)
         triangle->bounds.setTopLeft(docPos);
         triangle->bounds.setBottomRight(docPos);
         shapes_.push_back(std::move(triangle));
+        selectedIndex_ = int(shapes_.size()) - 1;
+        dragStart_ = docPos;
+        return;
+    }
+    if (mode_ == ToolMode::DrawPentagon) {
+        auto pentagon = std::make_unique<Pentagon>();
+        pentagon->bounds.setTopLeft(docPos);
+        pentagon->bounds.setBottomRight(docPos);
+        shapes_.push_back(std::move(pentagon));
         selectedIndex_ = int(shapes_.size()) - 1;
         dragStart_ = docPos;
         return;
@@ -291,7 +302,7 @@ void FlowView::mouseMoveEvent(QMouseEvent* e)
     }
 
     /* --- 1. 调整矩形大小 --- */
-    if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse || mode_ == ToolMode::DrawDiamond || mode_ == ToolMode::DrawTriangle) &&
+    if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse || mode_ == ToolMode::DrawDiamond || mode_ == ToolMode::DrawTriangle || mode_ == ToolMode::DrawPentagon) &&
         selectedIndex_ != -1 && (e->buttons() & Qt::LeftButton))
     {
         auto& r = shapes_[selectedIndex_]->bounds;
@@ -427,7 +438,7 @@ void FlowView::mouseReleaseEvent(QMouseEvent* e)
     }
     
     /* --- 完成矩形/椭圆绘制 --- */
-    if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse || mode_ == ToolMode::DrawDiamond || mode_ == ToolMode::DrawTriangle) && 
+    if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse || mode_ == ToolMode::DrawDiamond || mode_ == ToolMode::DrawTriangle || mode_ == ToolMode::DrawPentagon) && 
         selectedIndex_ != -1 && e->button() == Qt::LeftButton)
     {
         auto& r = shapes_[selectedIndex_]->bounds;
@@ -502,6 +513,7 @@ void FlowView::dropEvent(QDropEvent* e)
     else if (type == "ellipse") s = std::make_unique<Ellipse>();
     else if (type == "diamond") s = std::make_unique<Diamond>();
     else if (type == "triangle") s = std::make_unique<Triangle>();
+    else if (type == "pentagon") s = std::make_unique<Pentagon>();
     if (!s) return;
     
     s->bounds = { docPos.x() - 50, docPos.y() - 30, 100, 60 };
@@ -637,6 +649,7 @@ void FlowView::pasteClipboard()
     else if (type == "ellipse") s = std::make_unique<Ellipse>();
     else if (type == "diamond") s = std::make_unique<Diamond>();
     else if (type == "triangle") s = std::make_unique<Triangle>();
+    else if (type == "pentagon") s = std::make_unique<Pentagon>();
     if (!s) return;
     s->fromJson(obj);
     s->bounds.translate(10, 10);       // ΢ƫ
@@ -873,6 +886,8 @@ bool FlowView::loadFromFile(const QString& filename)
                 shape = std::make_unique<Diamond>();
             } else if (type == "triangle") {
                 shape = std::make_unique<Triangle>();
+            } else if (type == "pentagon") {
+                shape = std::make_unique<Pentagon>();
             }
             
             if (shape) {

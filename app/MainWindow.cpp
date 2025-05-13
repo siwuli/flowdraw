@@ -147,6 +147,7 @@ MainWindow::MainWindow(QWidget* parent)
     auto actEllipse = shapesMenu->addAction(tr("Ellipse"));
     auto actDiamond = shapesMenu->addAction(tr("Diamond"));
     auto actTriangle = shapesMenu->addAction(tr("Triangle"));
+    auto actPentagon = shapesMenu->addAction(tr("Pentagon"));
     
     // 设置菜单到按钮
     shapesButton->setMenu(shapesMenu);
@@ -186,6 +187,13 @@ MainWindow::MainWindow(QWidget* parent)
         view->clearSelection();
         qDebug() << "Triangle draw mode activated";
         view->setToolMode(FlowView::ToolMode::DrawTriangle);
+        });
+
+    //五边形按钮
+    connect(actPentagon, &QAction::triggered, this, [view] {
+        view->clearSelection();
+        qDebug() << "Pentagon draw mode activated";
+        view->setToolMode(FlowView::ToolMode::DrawPentagon);
         });
 
     connect(actLine, &QAction::triggered, this, [view] {
@@ -271,6 +279,12 @@ MainWindow::MainWindow(QWidget* parent)
     itTriangle->setToolTip(tr("Triangle"));
     palette->addItem(itTriangle);
 
+    // 五边形图标
+    auto* itPentagon = new QListWidgetItem(QIcon(":/icons/pentagon.svg"), "");
+    itPentagon->setData(Qt::UserRole, "pentagon");
+    itPentagon->setToolTip(tr("Pentagon"));
+    palette->addItem(itPentagon);
+
     // 拖拽实现
     palette->setDefaultDropAction(Qt::CopyAction);
     palette->installEventFilter(palette);          // 让 lambda 捕获
@@ -312,6 +326,9 @@ MainWindow::MainWindow(QWidget* parent)
             } else if (type == "triangle") {
                 view->clearSelection();
                 view->setToolMode(FlowView::ToolMode::DrawTriangle);
+            } else if (type == "pentagon") {
+                view->clearSelection();
+                view->setToolMode(FlowView::ToolMode::DrawPentagon);
             }
         });
 
