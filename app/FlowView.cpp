@@ -319,6 +319,13 @@ void FlowView::dropEvent(QDropEvent* e)
     QByteArray ba = e->mimeData()->data("application/x-flow-shape");
     QString type = QString::fromUtf8(ba);
 
+    // 如果是连接器类型，切换到连接器绘制模式
+    if (type == "connector") {
+        setToolMode(ToolMode::DrawConnector);
+        e->acceptProposedAction();
+        return;
+    }
+
     std::unique_ptr<Shape> s;
     if (type == "rect")    s = std::make_unique<Rect>();
     else if (type == "ellipse") s = std::make_unique<Ellipse>();
@@ -1156,6 +1163,25 @@ void FlowView::setObjectHeight(int height)
     
     // 更新连接器
     updateConnectorsFor(shapes_[selectedIndex_].get());
+    
+    update();
+}
+
+void FlowView::setToolMode(ToolMode m)
+{
+    // 切换前先清除当前绘制状态
+    if (m != mode_) {
+        currentConn_ = Connector{};
+    }
+    
+    mode_ = m;
+    
+    // 如果进入连接器模式，显示提示光标
+    if (m == ToolMode::DrawConnector) {
+        setCursor(Qt::CrossCursor);
+    } else {
+        setCursor(Qt::ArrowCursor);
+    }
     
     update();
 }

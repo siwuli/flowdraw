@@ -174,14 +174,26 @@ MainWindow::MainWindow(QWidget* parent)
     palette->setIconSize({ 48,48 });
     palette->setSpacing(4);
     palette->setDragEnabled(true);
+    
+    // 顶部：连接器
+    auto* itConnector = new QListWidgetItem(QIcon(":/icons/connector.svg"), tr("Connector"));
+    itConnector->setData(Qt::UserRole, "connector");
+    palette->addItem(itConnector);
+    
+    // 添加一个分隔条（空item作为视觉分隔）
+    auto* separator = new QListWidgetItem();
+    separator->setFlags(Qt::NoItemFlags); // 禁用此项
+    separator->setSizeHint(QSize(palette->width(), 10)); // 设置高度为10像素
+    separator->setBackground(QColor(200, 200, 200, 100)); // 设置淡灰色背景
+    palette->addItem(separator);
 
-    // 一级：矩形
-    auto* itRect = new QListWidgetItem(QIcon(":/icons/rect.png"), tr("Rectangle"));
+    // 基本图形：矩形
+    auto* itRect = new QListWidgetItem(QIcon(":/icons/rect.svg"), tr("Rectangle"));
     itRect->setData(Qt::UserRole, "rect");
     palette->addItem(itRect);
 
-    // 二级：椭圆
-    auto* itEllipse = new QListWidgetItem(QIcon(":/icons/ellipse.png"), tr("Ellipse"));
+    // 基本图形：椭圆
+    auto* itEllipse = new QListWidgetItem(QIcon(":/icons/ellipse.svg"), tr("Ellipse"));
     itEllipse->setData(Qt::UserRole, "ellipse");
     palette->addItem(itEllipse);
 
@@ -189,9 +201,10 @@ MainWindow::MainWindow(QWidget* parent)
     palette->setDefaultDropAction(Qt::CopyAction);
     palette->installEventFilter(palette);          // 让 lambda 捕获
 
+    // 拖拽事件
     QObject::connect(palette, &QListWidget::itemPressed,
         palette, [palette](QListWidgetItem* item) {
-            if (!item) return;
+            if (!item || (item->flags() & Qt::ItemIsEnabled) == 0) return;
             auto* mime = new QMimeData;
             mime->setData("application/x-flow-shape",
                 item->data(Qt::UserRole).toByteArray());
@@ -200,6 +213,24 @@ MainWindow::MainWindow(QWidget* parent)
             drag->setMimeData(mime);
             drag->setHotSpot(QPoint(24, 24));
             drag->exec(Qt::CopyAction);
+        });
+    
+    // 点击事件
+    QObject::connect(palette, &QListWidget::itemClicked,
+        this, [view, palette](QListWidgetItem* item) {
+            if (!item || (item->flags() & Qt::ItemIsEnabled) == 0) return;
+            
+            QString type = item->data(Qt::UserRole).toString();
+            if (type == "connector") {
+                view->clearSelection();
+                view->setToolMode(FlowView::ToolMode::DrawConnector);
+            } else if (type == "rect") {
+                view->clearSelection();
+                view->setToolMode(FlowView::ToolMode::DrawRect);
+            } else if (type == "ellipse") {
+                view->clearSelection();
+                view->setToolMode(FlowView::ToolMode::DrawEllipse);
+            }
         });
 
     paletteDock->setWidget(palette);

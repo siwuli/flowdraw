@@ -21,7 +21,7 @@ public:
 
     /* ---------- 工具模式 ---------- */
     enum class ToolMode { None, DrawRect, DrawEllipse, DrawConnector };
-    void setToolMode(ToolMode m) { mode_ = m; }
+    void setToolMode(ToolMode m);
 
     /* ---------- 文件操作 ---------- */
 public:
