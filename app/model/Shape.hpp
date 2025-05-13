@@ -42,7 +42,7 @@ public:
     QRectF bounds;   // 外围框，用于移动和选中
     QColor  fillColor = Qt::white;   
     QColor  strokeColor = Qt::black;   
-    qreal   strokeWidth = 1.5;
+    qreal   strokeWidth = 2.0;  // 增加默认边框粗细，从1.5增加到2.0
     
     // 添加文本相关属性
     QString text;
