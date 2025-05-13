@@ -2,11 +2,36 @@
 #include <QWidget>
 #include <vector>
 #include <memory>
+#include <stack>
 
 #include "model/Shape.hpp"
 #include "model/Rect.hpp"
 #include "model/Ellipse.hpp"
 #include "model/Connector.hpp"     // 所有连接线
+
+// 操作类型枚举
+enum class ActionType {
+    Add,        // 添加图形
+    Delete,     // 删除图形
+    Move,       // 移动图形
+    Resize,     // 调整大小
+    Property,   // 修改属性
+    ZOrder,     // 调整层级
+    AddConn,    // 添加连接线
+    DeleteConn  // 删除连接线
+};
+
+// 历史操作记录结构
+struct ActionRecord {
+    ActionType type;                         // 操作类型
+    int elementIndex;                        // 操作元素的索引
+    QJsonObject stateBefore;                 // 操作前的状态
+    QJsonObject stateAfter;                  // 操作后的状态
+    
+    // 连接线相关信息
+    int srcIndex = -1;                       // 连接线起点索引
+    int dstIndex = -1;                       // 连接线终点索引
+};
 
 class FlowView : public QWidget
 {
@@ -86,6 +111,10 @@ public slots:
     void zoomOut();
     void resetZoom();
     void fitToWindow();
+    
+    // 撤销和重做
+    void undo();
+    void redo();
 
 protected:
     /* ---------- Qt 事件 ---------- */
@@ -129,6 +158,13 @@ protected:
     
     // 查找点击了哪个连接线
     int hitTestConnector(const QPointF& pt) const;
+    
+    // 记录操作历史
+    void recordAction(ActionType type, int elementIndex, const QJsonObject& before, const QJsonObject& after);
+    // 记录连接线操作历史
+    void recordConnectorAction(ActionType type, int connIndex, int srcIndex, int dstIndex);
+    // 清空重做历史
+    void clearRedoHistory();
 
 private:
     /* ---------- 数据成员 ---------- */
@@ -155,4 +191,10 @@ private:
     QPointF viewOffset_ = {0, 0};  // 视图偏移量
     bool isPanning_ = false;       // 正在平移视图
     QPointF lastPanPoint_;         // 上次平移点
+    
+    // 操作历史记录
+    std::stack<ActionRecord> undoStack_;         // 撤销栈
+    std::stack<ActionRecord> redoStack_;         // 重做栈
+    bool isUndoRedoing_ = false;                 // 是否正在执行撤销/重做操作
+    QJsonObject lastShapeState_;                 // 上一次操作前的图形状态
 };

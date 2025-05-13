@@ -79,8 +79,8 @@ MainWindow::MainWindow(QWidget* parent)
     });
 
     auto editMenu = menuBar()->addMenu(tr("Edit"));
-    editMenu->addAction(tr("Undo"));
-    editMenu->addAction(tr("Redo"));
+    editMenu->addAction(tr("Undo\tCtrl+Z"), view, &FlowView::undo);
+    editMenu->addAction(tr("Redo\tCtrl+Y"), view, &FlowView::redo);
     editMenu->addSeparator();
     editMenu->addAction(tr("Copy\tCtrl+C"), view, &FlowView::copySelection);
     editMenu->addAction(tr("Cut\tCtrl+X"), view, &FlowView::cutSelection);
@@ -432,6 +432,10 @@ MainWindow::MainWindow(QWidget* parent)
     new QShortcut(QKeySequence("Ctrl+-"), view, SLOT(zoomOut()));
     new QShortcut(QKeySequence("Ctrl+0"), view, SLOT(resetZoom()));
     new QShortcut(QKeySequence("Ctrl+F"), view, SLOT(fitToWindow()));
+    
+    // 添加编辑操作快捷键
+    new QShortcut(QKeySequence::Undo, view, SLOT(undo()));
+    new QShortcut(QKeySequence::Redo, view, SLOT(redo()));
     
     // 添加文件操作快捷键
     new QShortcut(QKeySequence("Ctrl+N"), this, [this, view]() { view->clearAll(); });

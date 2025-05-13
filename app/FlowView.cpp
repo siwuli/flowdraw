@@ -708,9 +708,19 @@ void FlowView::pasteClipboard()
 void FlowView::deleteSelection()
 {
     if (selectedIndex_ == -1) return;
+    
+    // 记录删除前的状态
+    QJsonObject stateBefore = shapes_[selectedIndex_]->toJson();
+    int index = selectedIndex_;
+    
+    // 执行删除操作
     shapes_.erase(shapes_.begin() + selectedIndex_);
     selectedIndex_ = -1;
     updatePropertyPanel();
+    
+    // 记录删除操作
+    recordAction(ActionType::Delete, index, stateBefore, QJsonObject());
+    
     update();
 }
 
@@ -1162,6 +1172,30 @@ void FlowView::keyPressEvent(QKeyEvent* event)
             }
             break;
             
+        case Qt::Key_Z:
+            if (event->modifiers() & Qt::ControlModifier) {
+                // Ctrl+Z 撤销
+                if (event->modifiers() & Qt::ShiftModifier) {
+                    // Ctrl+Shift+Z 重做
+                    redo();
+                } else {
+                    // Ctrl+Z 撤销
+                    undo();
+                }
+                event->accept();
+                return;
+            }
+            break;
+            
+        case Qt::Key_Y:
+            if (event->modifiers() & Qt::ControlModifier) {
+                // Ctrl+Y 重做
+                redo();
+                event->accept();
+                return;
+            }
+            break;
+            
         case Qt::Key_Plus:
         case Qt::Key_Equal:
             if (event->modifiers() & Qt::ControlModifier) {
@@ -1595,4 +1629,313 @@ void FlowView::setConnectorColor(const QColor& c)
     // 更新UI
     emit connectorColorChanged(c);
     update();
+}
+
+// 记录操作历史
+void FlowView::recordAction(ActionType type, int elementIndex, const QJsonObject& before, const QJsonObject& after)
+{
+    if (isUndoRedoing_) return; // 如果是在执行撤销/重做操作，不记录
+    
+    ActionRecord record;
+    record.type = type;
+    record.elementIndex = elementIndex;
+    record.stateBefore = before;
+    record.stateAfter = after;
+    
+    undoStack_.push(record);
+    clearRedoHistory(); // 有新操作时清空重做历史
+}
+
+// 记录连接线操作历史
+void FlowView::recordConnectorAction(ActionType type, int connIndex, int srcIndex, int dstIndex)
+{
+    if (isUndoRedoing_) return;
+    
+    ActionRecord record;
+    record.type = type;
+    record.elementIndex = connIndex;
+    record.srcIndex = srcIndex;
+    record.dstIndex = dstIndex;
+    
+    if (type == ActionType::AddConn) {
+        // 添加连接线操作，记录连接线的属性
+        if (connIndex >= 0 && connIndex < connectors_.size()) {
+            QJsonObject connObj;
+            connObj["color"] = connectors_[connIndex].color.name();
+            connObj["width"] = connectors_[connIndex].width;
+            connObj["bidirectional"] = connectors_[connIndex].bidirectional;
+            record.stateAfter = connObj;
+        }
+    } else if (type == ActionType::DeleteConn) {
+        // 删除连接线操作，记录被删除连接线的属性
+        if (connIndex >= 0 && connIndex < connectors_.size()) {
+            QJsonObject connObj;
+            connObj["color"] = connectors_[connIndex].color.name();
+            connObj["width"] = connectors_[connIndex].width;
+            connObj["bidirectional"] = connectors_[connIndex].bidirectional;
+            record.stateBefore = connObj;
+        }
+    }
+    
+    undoStack_.push(record);
+    clearRedoHistory();
+}
+
+// 清空重做历史
+void FlowView::clearRedoHistory()
+{
+    while (!redoStack_.empty()) {
+        redoStack_.pop();
+    }
+}
+
+// 撤销操作
+void FlowView::undo()
+{
+    if (undoStack_.empty()) return;
+    
+    isUndoRedoing_ = true;
+    ActionRecord record = undoStack_.top();
+    undoStack_.pop();
+    
+    switch (record.type) {
+        case ActionType::Add:
+            // 撤销添加图形操作（删除图形）
+            if (record.elementIndex >= 0 && record.elementIndex < shapes_.size()) {
+                shapes_.erase(shapes_.begin() + record.elementIndex);
+                if (selectedIndex_ == record.elementIndex) {
+                    selectedIndex_ = -1;
+                } else if (selectedIndex_ > record.elementIndex) {
+                    selectedIndex_--;
+                }
+            }
+            break;
+            
+        case ActionType::Delete:
+            // 撤销删除图形操作（重新添加图形）
+            {
+                std::unique_ptr<Shape> s;
+                QString type = record.stateBefore["type"].toString();
+                if (type == "rect")         s = std::make_unique<Rect>();
+                else if (type == "ellipse") s = std::make_unique<Ellipse>();
+                else if (type == "diamond") s = std::make_unique<Diamond>();
+                else if (type == "triangle") s = std::make_unique<Triangle>();
+                else if (type == "pentagon") s = std::make_unique<Pentagon>();
+                else if (type == "hexagon") s = std::make_unique<Hexagon>();
+                else if (type == "octagon") s = std::make_unique<Octagon>();
+                
+                if (s) {
+                    s->fromJson(record.stateBefore);
+                    if (record.elementIndex >= 0 && record.elementIndex <= shapes_.size()) {
+                        shapes_.insert(shapes_.begin() + record.elementIndex, std::move(s));
+                        if (selectedIndex_ >= record.elementIndex) {
+                            selectedIndex_++;
+                        }
+                    } else {
+                        shapes_.push_back(std::move(s));
+                    }
+                }
+            }
+            break;
+            
+        case ActionType::Move:
+        case ActionType::Resize:
+        case ActionType::Property:
+            // 撤销移动/调整大小/属性修改操作（恢复到之前的状态）
+            if (record.elementIndex >= 0 && record.elementIndex < shapes_.size()) {
+                QString type = shapes_[record.elementIndex]->toJson()["type"].toString();
+                std::unique_ptr<Shape> s;
+                if (type == "rect")         s = std::make_unique<Rect>();
+                else if (type == "ellipse") s = std::make_unique<Ellipse>();
+                else if (type == "diamond") s = std::make_unique<Diamond>();
+                else if (type == "triangle") s = std::make_unique<Triangle>();
+                else if (type == "pentagon") s = std::make_unique<Pentagon>();
+                else if (type == "hexagon") s = std::make_unique<Hexagon>();
+                else if (type == "octagon") s = std::make_unique<Octagon>();
+                
+                if (s) {
+                    s->fromJson(record.stateBefore);
+                    shapes_[record.elementIndex] = std::move(s);
+                }
+            }
+            break;
+            
+        case ActionType::ZOrder:
+            // 撤销层级调整操作 - 较复杂，需从整体上重建图形序列
+            // 这里简化处理，仅对单个元素位置变化进行处理
+            // TODO: 实现更复杂的层级撤销
+            break;
+            
+        case ActionType::AddConn:
+            // 撤销添加连接线操作（删除连接线）
+            if (record.elementIndex >= 0 && record.elementIndex < connectors_.size()) {
+                connectors_.erase(connectors_.begin() + record.elementIndex);
+                if (selectedConnectorIndex_ == record.elementIndex) {
+                    selectedConnectorIndex_ = -1;
+                } else if (selectedConnectorIndex_ > record.elementIndex) {
+                    selectedConnectorIndex_--;
+                }
+            }
+            break;
+            
+        case ActionType::DeleteConn:
+            // 撤销删除连接线操作（重新添加连接线）
+            if (record.srcIndex >= 0 && record.srcIndex < shapes_.size() &&
+                record.dstIndex >= 0 && record.dstIndex < shapes_.size()) {
+                Connector conn;
+                conn.src = shapes_[record.srcIndex].get();
+                conn.dst = shapes_[record.dstIndex].get();
+                
+                // 恢复连接线属性
+                if (record.stateBefore.contains("color"))
+                    conn.color = QColor(record.stateBefore["color"].toString());
+                if (record.stateBefore.contains("width"))
+                    conn.width = record.stateBefore["width"].toDouble(2.0);
+                if (record.stateBefore.contains("bidirectional"))
+                    conn.bidirectional = record.stateBefore["bidirectional"].toBool();
+                
+                if (record.elementIndex >= 0 && record.elementIndex <= connectors_.size()) {
+                    connectors_.insert(connectors_.begin() + record.elementIndex, conn);
+                    if (selectedConnectorIndex_ >= record.elementIndex) {
+                        selectedConnectorIndex_++;
+                    }
+                } else {
+                    connectors_.push_back(conn);
+                }
+            }
+            break;
+    }
+    
+    // 将动作放入重做栈
+    redoStack_.push(record);
+    
+    // 更新UI
+    updatePropertyPanel();
+    update();
+    isUndoRedoing_ = false;
+}
+
+// 重做操作
+void FlowView::redo()
+{
+    if (redoStack_.empty()) return;
+    
+    isUndoRedoing_ = true;
+    ActionRecord record = redoStack_.top();
+    redoStack_.pop();
+    
+    switch (record.type) {
+        case ActionType::Add:
+            // 重做添加图形操作
+            {
+                std::unique_ptr<Shape> s;
+                QString type = record.stateAfter["type"].toString();
+                if (type == "rect")         s = std::make_unique<Rect>();
+                else if (type == "ellipse") s = std::make_unique<Ellipse>();
+                else if (type == "diamond") s = std::make_unique<Diamond>();
+                else if (type == "triangle") s = std::make_unique<Triangle>();
+                else if (type == "pentagon") s = std::make_unique<Pentagon>();
+                else if (type == "hexagon") s = std::make_unique<Hexagon>();
+                else if (type == "octagon") s = std::make_unique<Octagon>();
+                
+                if (s) {
+                    s->fromJson(record.stateAfter);
+                    if (record.elementIndex >= 0 && record.elementIndex <= shapes_.size()) {
+                        shapes_.insert(shapes_.begin() + record.elementIndex, std::move(s));
+                        if (selectedIndex_ >= record.elementIndex) {
+                            selectedIndex_++;
+                        }
+                    } else {
+                        shapes_.push_back(std::move(s));
+                    }
+                }
+            }
+            break;
+            
+        case ActionType::Delete:
+            // 重做删除图形操作
+            if (record.elementIndex >= 0 && record.elementIndex < shapes_.size()) {
+                shapes_.erase(shapes_.begin() + record.elementIndex);
+                if (selectedIndex_ == record.elementIndex) {
+                    selectedIndex_ = -1;
+                } else if (selectedIndex_ > record.elementIndex) {
+                    selectedIndex_--;
+                }
+            }
+            break;
+            
+        case ActionType::Move:
+        case ActionType::Resize:
+        case ActionType::Property:
+            // 重做移动/调整大小/属性修改操作
+            if (record.elementIndex >= 0 && record.elementIndex < shapes_.size()) {
+                QString type = shapes_[record.elementIndex]->toJson()["type"].toString();
+                std::unique_ptr<Shape> s;
+                if (type == "rect")         s = std::make_unique<Rect>();
+                else if (type == "ellipse") s = std::make_unique<Ellipse>();
+                else if (type == "diamond") s = std::make_unique<Diamond>();
+                else if (type == "triangle") s = std::make_unique<Triangle>();
+                else if (type == "pentagon") s = std::make_unique<Pentagon>();
+                else if (type == "hexagon") s = std::make_unique<Hexagon>();
+                else if (type == "octagon") s = std::make_unique<Octagon>();
+                
+                if (s) {
+                    s->fromJson(record.stateAfter);
+                    shapes_[record.elementIndex] = std::move(s);
+                }
+            }
+            break;
+            
+        case ActionType::ZOrder:
+            // 重做层级调整操作
+            // TODO: 实现更复杂的层级重做
+            break;
+            
+        case ActionType::AddConn:
+            // 重做添加连接线操作
+            if (record.srcIndex >= 0 && record.srcIndex < shapes_.size() &&
+                record.dstIndex >= 0 && record.dstIndex < shapes_.size()) {
+                Connector conn;
+                conn.src = shapes_[record.srcIndex].get();
+                conn.dst = shapes_[record.dstIndex].get();
+                
+                // 恢复连接线属性
+                if (record.stateAfter.contains("color"))
+                    conn.color = QColor(record.stateAfter["color"].toString());
+                if (record.stateAfter.contains("width"))
+                    conn.width = record.stateAfter["width"].toDouble(2.0);
+                if (record.stateAfter.contains("bidirectional"))
+                    conn.bidirectional = record.stateAfter["bidirectional"].toBool();
+                
+                if (record.elementIndex >= 0 && record.elementIndex <= connectors_.size()) {
+                    connectors_.insert(connectors_.begin() + record.elementIndex, conn);
+                    if (selectedConnectorIndex_ >= record.elementIndex) {
+                        selectedConnectorIndex_++;
+                    }
+                } else {
+                    connectors_.push_back(conn);
+                }
+            }
+            break;
+            
+        case ActionType::DeleteConn:
+            // 重做删除连接线操作
+            if (record.elementIndex >= 0 && record.elementIndex < connectors_.size()) {
+                connectors_.erase(connectors_.begin() + record.elementIndex);
+                if (selectedConnectorIndex_ == record.elementIndex) {
+                    selectedConnectorIndex_ = -1;
+                } else if (selectedConnectorIndex_ > record.elementIndex) {
+                    selectedConnectorIndex_--;
+                }
+            }
+            break;
+    }
+    
+    // 将动作放回撤销栈
+    undoStack_.push(record);
+    
+    // 更新UI
+    updatePropertyPanel();
+    update();
+    isUndoRedoing_ = false;
 }
