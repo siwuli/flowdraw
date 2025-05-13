@@ -13,6 +13,8 @@
 #include <QInputDialog>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QToolButton>
+#include <QMenu>
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -130,8 +132,25 @@ MainWindow::MainWindow(QWidget* parent)
 
     /* ---------- Toolbar ---------- */
     auto toolBar = addToolBar(tr("Tools"));
-    auto actRect = toolBar->addAction(tr("Rectangle"));
-    auto actEllipse = toolBar->addAction(tr("Ellipse"));
+    
+    // 创建形状菜单按钮
+    auto* shapesButton = new QToolButton;
+    shapesButton->setText(tr("Shapes"));
+    shapesButton->setPopupMode(QToolButton::InstantPopup); // 点击时立即显示菜单
+    
+    // 创建形状菜单
+    auto* shapesMenu = new QMenu(shapesButton);
+    
+    // 添加各种形状到菜单
+    auto actRect = shapesMenu->addAction(tr("Rectangle"));
+    auto actEllipse = shapesMenu->addAction(tr("Ellipse"));
+    auto actDiamond = shapesMenu->addAction(tr("Diamond"));
+    
+    // 设置菜单到按钮
+    shapesButton->setMenu(shapesMenu);
+    toolBar->addWidget(shapesButton);
+    
+    // 连接器按钮
     auto actLine = toolBar->addAction(tr("Connector"));
     
     // 添加分隔符
@@ -153,13 +172,19 @@ MainWindow::MainWindow(QWidget* parent)
         view->clearSelection();
         view->setToolMode(FlowView::ToolMode::DrawEllipse);
         });
+        
+    //菱形按钮
+    connect(actDiamond, &QAction::triggered, this, [view] {
+        view->clearSelection();
+        view->setToolMode(FlowView::ToolMode::DrawDiamond);
+        });
 
     connect(actLine, &QAction::triggered, this, [view] {
         view->clearSelection();                               // 取消现有选中
         view->setToolMode(FlowView::ToolMode::DrawConnector);
         // 设置鼠标指针为十字形状，提示用户可以直接在画布上绘制连接线
         view->setCursor(Qt::CrossCursor);
-    });
+        });
 
     // 连接视图控制按钮
     connect(actZoomIn, &QAction::triggered, view, &FlowView::zoomIn);
@@ -172,26 +197,64 @@ MainWindow::MainWindow(QWidget* parent)
     paletteDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 
     auto* palette = new QListWidget(paletteDock);
+    // 使用IconMode，以网格方式排列图标
     palette->setViewMode(QListView::IconMode);
-    palette->setIconSize({ 48,48 });
-    palette->setSpacing(4);
+    // 设置较大的图标
+    palette->setIconSize(QSize(48, 48));
+    // 设置网格大小，保证每行两个图标
+    int gridWidth = ((palette->width() - 10) / 2);
+    palette->setGridSize(QSize(gridWidth, 70));
+    // 调整内容流动方式和换行
+    palette->setFlow(QListView::LeftToRight);
+    palette->setWrapping(true);
+    palette->setResizeMode(QListView::Adjust);
+    // 禁止拖动位置
+    palette->setMovement(QListView::Static);
     palette->setDragEnabled(true);
+    // 简洁美观的样式
+    palette->setStyleSheet(
+        "QListWidget {"
+        "   background-color: #f8f8f8;"
+        "}"
+        "QListWidget::item {"
+        "   background-color: white;"
+        "   border: 1px solid #e0e0e0;"
+        "   border-radius: 4px;"
+        "   margin: 4px;"
+        "}"
+        "QListWidget::item:selected {"
+        "   background-color: #e0e0f0;"
+        "   border: 1px solid #a0a0d0;"
+        "}"
+        "QListWidget::item:hover {"
+        "   background-color: #f0f0f0;"
+        "   border: 1px solid #c0c0d0;"
+        "}"
+    );
     
-    // 顶部：连接器（单独一行）
-    auto* itConnector = new QListWidgetItem(QIcon(":/icons/connector.svg"), tr("Connector"));
+    // 连接器图标（不显示文本）
+    auto* itConnector = new QListWidgetItem(QIcon(":/icons/connector.svg"), "");
     itConnector->setData(Qt::UserRole, "connector");
-    itConnector->setSizeHint(QSize(palette->width(), 80)); // 增加高度，确保文字完整显示
+    itConnector->setToolTip(tr("Connector")); // 使用工具提示显示功能
     palette->addItem(itConnector);
     
-    // 基本图形：矩形
-    auto* itRect = new QListWidgetItem(QIcon(":/icons/rect.svg"), tr("Rectangle"));
+    // 矩形图标
+    auto* itRect = new QListWidgetItem(QIcon(":/icons/rect.svg"), "");
     itRect->setData(Qt::UserRole, "rect");
+    itRect->setToolTip(tr("Rectangle"));
     palette->addItem(itRect);
 
-    // 基本图形：椭圆
-    auto* itEllipse = new QListWidgetItem(QIcon(":/icons/ellipse.svg"), tr("Ellipse"));
+    // 椭圆图标
+    auto* itEllipse = new QListWidgetItem(QIcon(":/icons/ellipse.svg"), "");
     itEllipse->setData(Qt::UserRole, "ellipse");
+    itEllipse->setToolTip(tr("Ellipse"));
     palette->addItem(itEllipse);
+    
+    // 菱形图标
+    auto* itDiamond = new QListWidgetItem(QIcon(":/icons/diamond.svg"), "");
+    itDiamond->setData(Qt::UserRole, "diamond");
+    itDiamond->setToolTip(tr("Diamond"));
+    palette->addItem(itDiamond);
 
     // 拖拽实现
     palette->setDefaultDropAction(Qt::CopyAction);
@@ -228,6 +291,9 @@ MainWindow::MainWindow(QWidget* parent)
             } else if (type == "ellipse") {
                 view->clearSelection();
                 view->setToolMode(FlowView::ToolMode::DrawEllipse);
+            } else if (type == "diamond") {
+                view->clearSelection();
+                view->setToolMode(FlowView::ToolMode::DrawDiamond);
             }
         });
 
