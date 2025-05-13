@@ -90,21 +90,21 @@ void FlowView::paintEvent(QPaintEvent*)
 }
 
 /* ======= ¼ ======= */
-void FlowView::mousePressEvent(QMouseEvent* e)
+void FlowView::mousePressEvent(QMouseEvent* event)
 {
     setFocus(); // 获取焦点，以便接收键盘事件
     
     if (isPanning_) {
-        if (e->button() == Qt::LeftButton) {
+        if (event->button() == Qt::LeftButton) {
             setCursor(Qt::ClosedHandCursor);
-            lastPanPoint_ = e->pos();
-            e->accept();
+            lastPanPoint_ = event->pos();
+            event->accept();
             return;
         }
     }
 
     // 将视图坐标转换为文档坐标
-    QPointF docPos = viewToDoc(e->pos());
+    QPointF docPos = viewToDoc(event->pos());
     
     // 检查点击位置是否在页面内
     if (docPos.x() < 0 || docPos.y() < 0 || 
@@ -112,7 +112,7 @@ void FlowView::mousePressEvent(QMouseEvent* e)
         return;
     }
 
-    if (e->button() != Qt::LeftButton) return;
+    if (event->button() != Qt::LeftButton) return;
 
     /* --- 1. 新建矩形 / 椭圆 --- */
     if (mode_ == ToolMode::DrawRect) {
@@ -180,7 +180,7 @@ void FlowView::mousePressEvent(QMouseEvent* e)
     }
 
     /* --- 2. 新建连接线 (起点) --- */
-    if (mode_ == ToolMode::DrawConnector && e->button() == Qt::LeftButton) {
+    if (mode_ == ToolMode::DrawConnector && event->button() == Qt::LeftButton) {
         // 如果当前已经有一个连接线起点，则尝试完成连接
         if (currentConn_.src) {
             // 检查是否点击到了作为终点的形状
@@ -251,6 +251,9 @@ void FlowView::mousePressEvent(QMouseEvent* e)
         resizeHandle_ = hitTestResizeHandles(docPos, shapes_[selectedIndex_]->bounds);
         if (resizeHandle_ != ResizeHandle::None) {
             dragStart_ = docPos;
+            // 保存调整大小前的状态
+            lastShapeState_ = shapes_[selectedIndex_]->toJson();
+            event->accept();
             return;
         }
     }
@@ -268,6 +271,8 @@ void FlowView::mousePressEvent(QMouseEvent* e)
             if (shapes_[i]->hitTest(docPos)) {
                 selectedIndex_ = i;
                 dragStart_ = docPos;
+                // 保存移动前的状态
+                lastShapeState_ = shapes_[i]->toJson();
                 break;
             }
         }
@@ -303,22 +308,22 @@ void FlowView::mousePressEvent(QMouseEvent* e)
     update();
 }
 
-void FlowView::mouseMoveEvent(QMouseEvent* e)
+void FlowView::mouseMoveEvent(QMouseEvent* event)
 {
-    if (isPanning_ && (e->buttons() & Qt::LeftButton)) {
+    if (isPanning_ && (event->buttons() & Qt::LeftButton)) {
         // 平移视图
-        viewOffset_ += e->pos() - lastPanPoint_;
-        lastPanPoint_ = e->pos();
+        viewOffset_ += event->pos() - lastPanPoint_;
+        lastPanPoint_ = event->pos();
         update();
         return;
     }
     
     // 将视图坐标转换为文档坐标
-    QPointF docPos = viewToDoc(e->pos());
+    QPointF docPos = viewToDoc(event->pos());
 
     /* --- 调整矩形/椭圆大小（通过拖拽角度和边缘） --- */
     if (selectedIndex_ != -1 && resizeHandle_ != ResizeHandle::None &&
-        (e->buttons() & Qt::LeftButton))
+        (event->buttons() & Qt::LeftButton))
     {
         QPointF offset = docPos - dragStart_;
         dragStart_ = docPos;
@@ -334,7 +339,7 @@ void FlowView::mouseMoveEvent(QMouseEvent* e)
     if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse || mode_ == ToolMode::DrawDiamond || 
          mode_ == ToolMode::DrawTriangle || mode_ == ToolMode::DrawPentagon || mode_ == ToolMode::DrawHexagon || 
          mode_ == ToolMode::DrawOctagon) &&
-        selectedIndex_ != -1 && (e->buttons() & Qt::LeftButton))
+        selectedIndex_ != -1 && (event->buttons() & Qt::LeftButton))
     {
         auto& r = shapes_[selectedIndex_]->bounds;
         r.setBottomRight(docPos);
@@ -371,7 +376,7 @@ void FlowView::mouseMoveEvent(QMouseEvent* e)
     
     /* --- 3. 拖拽移动图形 --- */
     if (mode_ == ToolMode::None && selectedIndex_ != -1 && 
-        (e->buttons() & Qt::LeftButton) && resizeHandle_ == ResizeHandle::None)
+        (event->buttons() & Qt::LeftButton) && resizeHandle_ == ResizeHandle::None)
     {
         QPointF delta = docPos - dragStart_;
         dragStart_ = docPos;
@@ -434,18 +439,18 @@ void FlowView::mouseMoveEvent(QMouseEvent* e)
     }
 }
 
-void FlowView::mouseReleaseEvent(QMouseEvent* e)
+void FlowView::mouseReleaseEvent(QMouseEvent* event)
 {
-    if (isPanning_ && e->button() == Qt::LeftButton) {
+    if (isPanning_ && event->button() == Qt::LeftButton) {
         setCursor(Qt::OpenHandCursor);
         update();
         return;
     }
     
-    QPointF docPos = viewToDoc(e->pos());
+    QPointF docPos = viewToDoc(event->pos());
 
     /* --- 完成连接线绘制 --- */
-    if (mode_ == ToolMode::DrawConnector && currentConn_.src && e->button() == Qt::LeftButton)
+    if (mode_ == ToolMode::DrawConnector && currentConn_.src && event->button() == Qt::LeftButton)
     {
         // 如果找到了终点，添加这条连接线
         if (currentConn_.dst)
@@ -472,7 +477,7 @@ void FlowView::mouseReleaseEvent(QMouseEvent* e)
     if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse || mode_ == ToolMode::DrawDiamond || 
          mode_ == ToolMode::DrawTriangle || mode_ == ToolMode::DrawPentagon || mode_ == ToolMode::DrawHexagon ||
          mode_ == ToolMode::DrawOctagon) && 
-        selectedIndex_ != -1 && e->button() == Qt::LeftButton)
+        selectedIndex_ != -1 && event->button() == Qt::LeftButton)
     {
         auto& r = shapes_[selectedIndex_]->bounds;
         if (r.width() < 5 || r.height() < 5) {
@@ -500,7 +505,7 @@ void FlowView::mouseReleaseEvent(QMouseEvent* e)
     }
 
     /* --- 拖拽时，如果移出了画布区域则删除 --- */
-    if (selectedIndex_ != -1 && e->button() == Qt::LeftButton)
+    if (selectedIndex_ != -1 && event->button() == Qt::LeftButton)
     {
         if (docPos.x() < 0 || docPos.y() < 0 || 
             docPos.x() > pageSize_.width() || docPos.y() > pageSize_.height())
@@ -508,6 +513,21 @@ void FlowView::mouseReleaseEvent(QMouseEvent* e)
             shapes_.erase(shapes_.begin() + selectedIndex_);
             selectedIndex_ = -1;
             update();
+        }
+    }
+ 
+    if (event->button() == Qt::LeftButton) {
+        // 在拖动或调整大小结束时记录历史
+        if (selectedIndex_ != -1 && !lastShapeState_.isEmpty()) {
+            QJsonObject currentState = shapes_[selectedIndex_]->toJson();
+            if (resizeHandle_ != ResizeHandle::None) {
+                // 调整大小操作
+                recordAction(ActionType::Resize, selectedIndex_, lastShapeState_, currentState);
+            } else {
+                // 移动操作
+                recordAction(ActionType::Move, selectedIndex_, lastShapeState_, currentState);
+            }
+            lastShapeState_ = QJsonObject(); // 清空保存的状态
         }
     }
 }
@@ -707,21 +727,39 @@ void FlowView::pasteClipboard()
 
 void FlowView::deleteSelection()
 {
-    if (selectedIndex_ == -1) return;
-    
-    // 记录删除前的状态
-    QJsonObject stateBefore = shapes_[selectedIndex_]->toJson();
-    int index = selectedIndex_;
-    
-    // 执行删除操作
-    shapes_.erase(shapes_.begin() + selectedIndex_);
-    selectedIndex_ = -1;
-    updatePropertyPanel();
-    
-    // 记录删除操作
-    recordAction(ActionType::Delete, index, stateBefore, QJsonObject());
-    
-    update();
+    if (selectedIndex_ != -1) {
+        // 记录删除前的图形状态
+        QJsonObject stateBefore = shapes_[selectedIndex_]->toJson();
+        int index = selectedIndex_;
+        
+        // 执行删除
+        shapes_.erase(shapes_.begin() + selectedIndex_);
+        selectedIndex_ = -1;
+        
+        // 记录删除操作
+        recordAction(ActionType::Delete, index, stateBefore, QJsonObject());
+        
+        updatePropertyPanel();
+        update();
+    } else if (selectedConnectorIndex_ != -1) {
+        // 记录删除连接线前，首先找出连接线的源和目标图形索引
+        int srcIndex = -1, dstIndex = -1;
+        for (size_t i = 0; i < shapes_.size(); ++i) {
+            if (shapes_[i].get() == connectors_[selectedConnectorIndex_].src) srcIndex = i;
+            if (shapes_[i].get() == connectors_[selectedConnectorIndex_].dst) dstIndex = i;
+        }
+        
+        // 记录删除连接线操作
+        int index = selectedConnectorIndex_;
+        recordConnectorAction(ActionType::DeleteConn, index, srcIndex, dstIndex);
+        
+        // 执行删除
+        connectors_.erase(connectors_.begin() + selectedConnectorIndex_);
+        selectedConnectorIndex_ = -1;
+        
+        updatePropertyPanel();
+        update();
+    }
 }
 
 /* ======= Z-Order ======= */
@@ -765,30 +803,33 @@ void FlowView::moveDown()
 //ʵ������ setter slot
 void FlowView::setFill(const QColor& c)
 {
-    if (selectedIndex_ == -1 || !c.isValid()) return;
-    shapes_[selectedIndex_]->fillColor = c;
-    update();
-    
-    // 更新属性面板
-    updatePropertyPanel();
+    if (selectedIndex_ != -1) {
+        QJsonObject before = shapes_[selectedIndex_]->toJson();
+        shapes_[selectedIndex_]->fillColor = c;
+        QJsonObject after = shapes_[selectedIndex_]->toJson();
+        recordAction(ActionType::Property, selectedIndex_, before, after);
+        update();
+    }
 }
 void FlowView::setStroke(const QColor& c)
 {
-    if (selectedIndex_ == -1 || !c.isValid()) return;
-    shapes_[selectedIndex_]->strokeColor = c;
-    update();
-
-    // 更新属性面板
-    updatePropertyPanel();
+    if (selectedIndex_ != -1) {
+        QJsonObject before = shapes_[selectedIndex_]->toJson();
+        shapes_[selectedIndex_]->strokeColor = c;
+        QJsonObject after = shapes_[selectedIndex_]->toJson();
+        recordAction(ActionType::Property, selectedIndex_, before, after);
+        update();
+    }
 }
 void FlowView::setWidth(qreal w)
 {
-    if (selectedIndex_ == -1) return;
-    shapes_[selectedIndex_]->strokeWidth = w;
-    update();
-
-    // 更新属性面板
-    updatePropertyPanel();
+    if (selectedIndex_ != -1) {
+        QJsonObject before = shapes_[selectedIndex_]->toJson();
+        shapes_[selectedIndex_]->strokeWidth = w;
+        QJsonObject after = shapes_[selectedIndex_]->toJson();
+        recordAction(ActionType::Property, selectedIndex_, before, after);
+        update();
+    }
 }
 
 
@@ -1603,7 +1644,42 @@ int FlowView::hitTestConnector(const QPointF& pt) const
 void FlowView::setConnectorBidirectional(bool bidirectional)
 {
     if (selectedConnectorIndex_ >= 0 && selectedConnectorIndex_ < connectors_.size()) {
+        // 记录修改前的状态
+        QJsonObject before;
+        before["bidirectional"] = connectors_[selectedConnectorIndex_].bidirectional;
+        before["color"] = connectors_[selectedConnectorIndex_].color.name();
+        before["width"] = connectors_[selectedConnectorIndex_].width;
+        
+        // 执行修改
         connectors_[selectedConnectorIndex_].bidirectional = bidirectional;
+        
+        // 记录修改后的状态
+        QJsonObject after;
+        after["bidirectional"] = connectors_[selectedConnectorIndex_].bidirectional;
+        after["color"] = connectors_[selectedConnectorIndex_].color.name();
+        after["width"] = connectors_[selectedConnectorIndex_].width;
+        
+        // 查找连接线的源和目标图形索引
+        int srcIndex = -1, dstIndex = -1;
+        for (size_t i = 0; i < shapes_.size(); ++i) {
+            if (shapes_[i].get() == connectors_[selectedConnectorIndex_].src) srcIndex = i;
+            if (shapes_[i].get() == connectors_[selectedConnectorIndex_].dst) dstIndex = i;
+        }
+        
+        // 记录属性修改操作
+        ActionRecord record;
+        record.type = ActionType::Property;
+        record.elementIndex = selectedConnectorIndex_;
+        record.stateBefore = before;
+        record.stateAfter = after;
+        record.srcIndex = srcIndex;
+        record.dstIndex = dstIndex;
+        
+        if (!isUndoRedoing_) {
+            undoStack_.push(record);
+            clearRedoHistory();
+        }
+        
         update();
     }
 }
@@ -1614,8 +1690,46 @@ void FlowView::toggleConnectorDirection()
     if (selectedConnectorIndex_ >= 0 && selectedConnectorIndex_ < connectors_.size()) {
         Connector& conn = connectors_[selectedConnectorIndex_];
         
+        // 记录修改前的状态和源目标索引
+        QJsonObject before;
+        before["bidirectional"] = conn.bidirectional;
+        before["color"] = conn.color.name();
+        before["width"] = conn.width;
+        
+        int oldSrcIndex = -1, oldDstIndex = -1;
+        for (size_t i = 0; i < shapes_.size(); ++i) {
+            if (shapes_[i].get() == conn.src) oldSrcIndex = i;
+            if (shapes_[i].get() == conn.dst) oldDstIndex = i;
+        }
+        
         // 交换起点和终点
         std::swap(conn.src, conn.dst);
+        
+        // 记录修改后的状态和新的源目标索引
+        QJsonObject after;
+        after["bidirectional"] = conn.bidirectional;
+        after["color"] = conn.color.name();
+        after["width"] = conn.width;
+        
+        int newSrcIndex = -1, newDstIndex = -1;
+        for (size_t i = 0; i < shapes_.size(); ++i) {
+            if (shapes_[i].get() == conn.src) newSrcIndex = i;
+            if (shapes_[i].get() == conn.dst) newDstIndex = i;
+        }
+        
+        // 记录属性修改操作
+        ActionRecord record;
+        record.type = ActionType::Property;
+        record.elementIndex = selectedConnectorIndex_;
+        record.stateBefore = before;
+        record.stateAfter = after;
+        record.srcIndex = oldSrcIndex;
+        record.dstIndex = oldDstIndex;
+        
+        if (!isUndoRedoing_) {
+            undoStack_.push(record);
+            clearRedoHistory();
+        }
         
         update();
     }
@@ -1625,7 +1739,43 @@ void FlowView::toggleConnectorDirection()
 void FlowView::setConnectorColor(const QColor& c)
 {
     if (selectedConnectorIndex_ == -1 || !c.isValid()) return;
+    
+    // 记录修改前的状态
+    QJsonObject before;
+    before["bidirectional"] = connectors_[selectedConnectorIndex_].bidirectional;
+    before["color"] = connectors_[selectedConnectorIndex_].color.name();
+    before["width"] = connectors_[selectedConnectorIndex_].width;
+    
+    // 执行修改
     connectors_[selectedConnectorIndex_].color = c;
+    
+    // 记录修改后的状态
+    QJsonObject after;
+    after["bidirectional"] = connectors_[selectedConnectorIndex_].bidirectional;
+    after["color"] = connectors_[selectedConnectorIndex_].color.name();
+    after["width"] = connectors_[selectedConnectorIndex_].width;
+    
+    // 查找连接线的源和目标图形索引
+    int srcIndex = -1, dstIndex = -1;
+    for (size_t i = 0; i < shapes_.size(); ++i) {
+        if (shapes_[i].get() == connectors_[selectedConnectorIndex_].src) srcIndex = i;
+        if (shapes_[i].get() == connectors_[selectedConnectorIndex_].dst) dstIndex = i;
+    }
+    
+    // 记录属性修改操作
+    ActionRecord record;
+    record.type = ActionType::Property;
+    record.elementIndex = selectedConnectorIndex_;
+    record.stateBefore = before;
+    record.stateAfter = after;
+    record.srcIndex = srcIndex;
+    record.dstIndex = dstIndex;
+    
+    if (!isUndoRedoing_) {
+        undoStack_.push(record);
+        clearRedoHistory();
+    }
+    
     // 更新UI
     emit connectorColorChanged(c);
     update();
