@@ -12,23 +12,22 @@ void Connector::drawArrow(QPainter& p, const QPointF& from, const QPointF& to) c
     constexpr double arrowSize = 14;
     double angle = std::atan2(-line.dy(), line.dx());
 
+    // 创建尖锐的三角形箭头
     QPointF p1 = to + QPointF(std::sin(angle + M_PI / 3.0) * arrowSize,
         std::cos(angle + M_PI / 3.0) * arrowSize);
     QPointF p2 = to + QPointF(std::sin(angle - M_PI / 3.0) * arrowSize,
         std::cos(angle - M_PI / 3.0) * arrowSize);
-        
-    QPointF tailPoint = to + QPointF(std::sin(angle + M_PI) * arrowSize * 0.5,
-        std::cos(angle + M_PI) * arrowSize * 0.5);
 
+    // 三角形箭头 (移除曲线部分，不使用中间点)
     QPolygonF head;
-    head << to << p1 << tailPoint << p2;
+    head << to << p1 << p2;
     
     QPen originalPen = p.pen();
     QBrush originalBrush = p.brush();
     
+    // 使用连接线颜色填充箭头
     p.setBrush(color);
-    
-    QPen arrowPen(color.darker(120), width + 0.5);
+    QPen arrowPen(color, width);
     p.setPen(arrowPen);
     
     p.drawPolygon(head);

@@ -17,6 +17,7 @@ signals:
     void shapeSize(int width, int height);  // 新增形状尺寸信号
     void textColorChanged(const QColor& color);  // 文本颜色变化信号
     void textSizeChanged(int size);  // 文本大小变化信号
+    void connectorColorChanged(const QColor& color);  // 连接线颜色变化信号
 
 public:
     explicit FlowView(QWidget* parent = nullptr);
@@ -70,6 +71,7 @@ public slots:
     // 连接线属性设置
     void setConnectorBidirectional(bool bidirectional);
     void toggleConnectorDirection();
+    void setConnectorColor(const QColor& c);
 
     void updateConnectorsFor(Shape* movedShape);
 

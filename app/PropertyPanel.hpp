@@ -27,6 +27,8 @@ public slots:
     void updateTextColor(const QColor& color);
     // 加载文本大小
     void updateTextSize(int size);
+    // 加载连接线颜色
+    void updateConnectorColor(const QColor& color);
 
 signals:
     void fillChanged(const QColor&);
@@ -38,6 +40,8 @@ signals:
     // 对象尺寸变化信号
     void objectWidthChanged(int);
     void objectHeightChanged(int);
+    // 连接线颜色变化信号
+    void connectorColorChanged(const QColor&);
 
 private:
     QPushButton* btnFill_;
@@ -50,4 +54,7 @@ private:
     // 对象尺寸微调控件
     QSpinBox* spinObjectWidth_;
     QSpinBox* spinObjectHeight_;
+    
+    // 连接线颜色
+    QPushButton* btnConnectorColor_;
 };

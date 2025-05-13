@@ -388,6 +388,9 @@ MainWindow::MainWindow(QWidget* parent)
         propPanel, &PropertyPanel::updateTextColor);
     connect(view, &FlowView::textSizeChanged,
         propPanel, &PropertyPanel::updateTextSize);
+    // 连接线颜色信号连接
+    connect(view, &FlowView::connectorColorChanged,
+        propPanel, &PropertyPanel::updateConnectorColor);
 
     connect(propPanel, &PropertyPanel::fillChanged,
         view, &FlowView::setFill);
@@ -407,8 +410,10 @@ MainWindow::MainWindow(QWidget* parent)
         view, &FlowView::setTextColor);
     connect(propPanel, &PropertyPanel::textSizeChanged,
         view, &FlowView::setTextSize);
-
-
+    
+    // 连接线属性绑定
+    connect(propPanel, &PropertyPanel::connectorColorChanged,
+        view, &FlowView::setConnectorColor);
 
     //添加快捷键
     new QShortcut(QKeySequence::Copy, view, SLOT(copySelection()));

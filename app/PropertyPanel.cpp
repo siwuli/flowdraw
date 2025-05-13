@@ -55,10 +55,18 @@ PropertyPanel::PropertyPanel(QWidget* parent) : QWidget(parent)
     textLay->addRow(tr("Font Size"), spinTextSize_);
     textLay->addRow(new QLabel(tr("Tip: Double-click shape to edit text"), this));
     
+    // 连接线属性组
+    auto* connectorGroup = new QGroupBox(tr("Connector Properties"), this);
+    auto* connectorLay = new QFormLayout(connectorGroup);
+    
+    btnConnectorColor_ = new QPushButton; btnConnectorColor_->setAutoFillBackground(true);
+    connectorLay->addRow(tr("Connector Color"), btnConnectorColor_);
+    
     // 添加到主布局
     mainLayout->addWidget(shapeGroup);
     mainLayout->addWidget(sizeGroup);
     mainLayout->addWidget(textGroup);
+    mainLayout->addWidget(connectorGroup);
     mainLayout->addStretch();
     
     // 形状属性信号连接
@@ -86,6 +94,12 @@ PropertyPanel::PropertyPanel(QWidget* parent) : QWidget(parent)
     });
     connect(spinTextSize_, QOverload<int>::of(&QSpinBox::valueChanged),
         this, [this](int v) { emit textSizeChanged(v); });
+        
+    // 连接线属性信号连接
+    connect(btnConnectorColor_, &QPushButton::clicked, this, [this] {
+        QColor c = QColorDialog::getColor(btnConnectorColor_->palette().button().color(), this);
+        if (c.isValid()) emit connectorColorChanged(c);
+    });
 }
 
 void PropertyPanel::load(const QColor& fill, const QColor& stroke, qreal width)
@@ -99,6 +113,7 @@ void PropertyPanel::load(const QColor& fill, const QColor& stroke, qreal width)
     spinTextSize_->setEnabled(hasSel);
     spinObjectWidth_->setEnabled(hasSel);
     spinObjectHeight_->setEnabled(hasSel);
+    btnConnectorColor_->setEnabled(false);  // 默认禁用连接线颜色按钮
 
     if (!hasSel) {                       // 灰度显示
         setColorButton(btnFill_, {});
@@ -119,6 +134,8 @@ void PropertyPanel::load(const QColor& fill, const QColor& stroke, qreal width)
         spinObjectHeight_->blockSignals(true);
         spinObjectHeight_->setValue(100);
         spinObjectHeight_->blockSignals(false);
+        
+        setColorButton(btnConnectorColor_, {});
         return;
     }
 
@@ -165,5 +182,17 @@ void PropertyPanel::updateTextSize(int size)
         spinTextSize_->blockSignals(true);
         spinTextSize_->setValue(size);
         spinTextSize_->blockSignals(false);
+    }
+}
+
+// 连接线颜色改变槽函数
+void PropertyPanel::updateConnectorColor(const QColor& color)
+{
+    if (color.isValid()) {
+        setColorButton(btnConnectorColor_, color);
+        btnConnectorColor_->setEnabled(true);
+    } else {
+        setColorButton(btnConnectorColor_, Qt::black);
+        btnConnectorColor_->setEnabled(false);
     }
 }

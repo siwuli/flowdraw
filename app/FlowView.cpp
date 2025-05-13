@@ -24,6 +24,7 @@
 #include "model/Pentagon.hpp"
 #include "model/Hexagon.hpp"
 #include "model/Octagon.hpp"
+#include <QColorDialog>
 
 /* =====  ===== */
 FlowView::FlowView(QWidget* parent)
@@ -590,6 +591,17 @@ void FlowView::contextMenuEvent(QContextMenuEvent* e)
         if (selectedConnectorIndex_ != -1) {
             // 创建连接线菜单
             Connector& conn = connectors_[selectedConnectorIndex_];
+            
+            // 添加连接线颜色选项
+            QAction* actConnectorColor = menu.addAction(tr("Connector Color"));
+            connect(actConnectorColor, &QAction::triggered, this, [this, &conn]() {
+                QColor color = QColorDialog::getColor(conn.color, this, tr("Select Connector Color"));
+                if (color.isValid()) {
+                    conn.color = color;
+                    emit connectorColorChanged(color);
+                    update();
+                }
+            });
             
             // 添加双向箭头切换选项
             QAction* actBidirectional = menu.addAction(tr("Bidirectional"));
@@ -1393,6 +1405,7 @@ void FlowView::updatePropertyPanel()
         auto& conn = connectors_[selectedConnectorIndex_];
         emit shapeAttr({}, conn.color, conn.width);
         emit shapeSize(0, 0);  // 连接线没有尺寸属性
+        emit connectorColorChanged(conn.color);  // 发送连接线颜色
         return;
     }
 
@@ -1410,12 +1423,16 @@ void FlowView::updatePropertyPanel()
         emit textColorChanged(shape->textColor);
         emit textSizeChanged(shape->textSize);
         
+        // 未选中连接线时，发送空颜色
+        emit connectorColorChanged(QColor());
+        
         return;
     }
     
     // 如果没有选中任何内容
     emit shapeAttr({}, {}, -1);
     emit shapeSize(0, 0);
+    emit connectorColorChanged(QColor());
 }
 
 // 设置对象宽度
@@ -1482,7 +1499,7 @@ void FlowView::setToolMode(ToolMode m)
 // 查找点击了哪个连接线
 int FlowView::hitTestConnector(const QPointF& pt) const
 {
-    const double hitDistance = 5.0; // 点击误差范围
+    const double hitDistance = 8.0; // 增大点击误差范围，更容易选中
     
     for (int i = 0; i < connectors_.size(); ++i) {
         const Connector& conn = connectors_[i];
@@ -1508,8 +1525,24 @@ int FlowView::hitTestConnector(const QPointF& pt) const
         QPointF w = pt - line.p1();
         double proj = QPointF::dotProduct(w, v);
         
-        // 如果投影在线段范围外，跳过
-        if (proj < 0 || proj > len) continue;
+        // 如果投影在线段范围外，检查是否在箭头附近
+        if (proj < 0 || proj > len) {
+            // 检查是否在箭头附近 (箭头位于p2点)
+            double distanceToArrow = QLineF(pt, p2).length();
+            if (distanceToArrow <= hitDistance * 2) { // 箭头区域用更大的检测范围
+                return i;
+            }
+            
+            // 如果是双向箭头，也检查起点箭头
+            if (conn.bidirectional) {
+                double distanceToStartArrow = QLineF(pt, p1).length();
+                if (distanceToStartArrow <= hitDistance * 2) {
+                    return i;
+                }
+            }
+            
+            continue;
+        }
         
         // 计算点到直线的垂直距离
         QPointF projPoint = line.p1() + v * proj;
@@ -1544,4 +1577,14 @@ void FlowView::toggleConnectorDirection()
         
         update();
     }
+}
+
+// 添加连接线颜色设置
+void FlowView::setConnectorColor(const QColor& c)
+{
+    if (selectedConnectorIndex_ == -1 || !c.isValid()) return;
+    connectors_[selectedConnectorIndex_].color = c;
+    // 更新UI
+    emit connectorColorChanged(c);
+    update();
 }
