@@ -12,7 +12,7 @@ public:
     
     // 添加颜色和宽度属性
     QColor color = Qt::black;   // 连接线颜色
-    qreal width = 1.5;          // 连接线宽度
+    qreal width = 2.0;          // 连接线宽度
     
     // 箭头类型
     bool bidirectional = false; // 是否为双向箭头

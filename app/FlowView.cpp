@@ -272,11 +272,15 @@ void FlowView::mousePressEvent(QMouseEvent* e)
             }
         }
     }
-
+    
     if (selectedIndex_ != -1) {
         auto* s = shapes_[selectedIndex_].get();
         emit shapeAttr(s->fillColor, s->strokeColor, s->strokeWidth);
         // 更新属性面板，包括尺寸
+        updatePropertyPanel();
+    }
+    else if (selectedConnectorIndex_ != -1) {
+        // 如果选中了连接线，更新属性面板
         updatePropertyPanel();
     }
     else {
@@ -291,7 +295,11 @@ void FlowView::mousePressEvent(QMouseEvent* e)
         }
     }
 
-    resizeHandle_ = ResizeHandle::None;
+    // 如果未选中图形，重置调整柄
+    if (selectedIndex_ == -1) {
+        resizeHandle_ = ResizeHandle::None;
+    }
+    
     update();
 }
 
@@ -1499,7 +1507,7 @@ void FlowView::setToolMode(ToolMode m)
 // 查找点击了哪个连接线
 int FlowView::hitTestConnector(const QPointF& pt) const
 {
-    const double hitDistance = 8.0; // 增大点击误差范围，更容易选中
+    const double hitDistance = 12.0; // 增大点击误差范围，更容易选中(从8.0改为12.0)
     
     for (int i = 0; i < connectors_.size(); ++i) {
         const Connector& conn = connectors_[i];
@@ -1529,14 +1537,14 @@ int FlowView::hitTestConnector(const QPointF& pt) const
         if (proj < 0 || proj > len) {
             // 检查是否在箭头附近 (箭头位于p2点)
             double distanceToArrow = QLineF(pt, p2).length();
-            if (distanceToArrow <= hitDistance * 2) { // 箭头区域用更大的检测范围
+            if (distanceToArrow <= hitDistance * 2.5) { // 箭头区域用更大的检测范围(从2倍改为2.5倍)
                 return i;
             }
             
             // 如果是双向箭头，也检查起点箭头
             if (conn.bidirectional) {
                 double distanceToStartArrow = QLineF(pt, p1).length();
-                if (distanceToStartArrow <= hitDistance * 2) {
+                if (distanceToStartArrow <= hitDistance * 2.5) {
                     return i;
                 }
             }

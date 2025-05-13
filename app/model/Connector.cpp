@@ -9,7 +9,7 @@ QPointF Connector::anchorPoint(const Shape* s, const QPointF& ref) const
 void Connector::drawArrow(QPainter& p, const QPointF& from, const QPointF& to) const
 {
     QLineF line(from, to);
-    constexpr double arrowSize = 14;
+    constexpr double arrowSize = 16; // 增大箭头尺寸，使其更明显
     
     // 计算连接线的方向角度
     // 注意: 在Qt的坐标系统中, Y轴向下为正, 所以需要反转Y值来计算正确的角度
@@ -64,6 +64,7 @@ void Connector::paint(QPainter& p) const
     // 第三次计算：起点基于新的终点（再次调整）
     p1 = anchorPoint(src, p2);
 
+    // 增加线宽，使连接线更明显
     p.setPen(QPen(color, width));
     p.drawLine(p1, p2);
     
