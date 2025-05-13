@@ -12,13 +12,13 @@ void Connector::drawArrow(QPainter& p, const QPointF& from, const QPointF& to) c
     constexpr double arrowSize = 14;
     double angle = std::atan2(-line.dy(), line.dx());
 
-    QPointF p1 = to + QPointF(std::sin(angle + M_PI / 2.2) * arrowSize,
-        std::cos(angle + M_PI / 2.2) * arrowSize);
-    QPointF p2 = to + QPointF(std::sin(angle - M_PI / 2.2) * arrowSize,
-        std::cos(angle - M_PI / 2.2) * arrowSize);
+    QPointF p1 = to + QPointF(std::sin(angle + M_PI / 3.0) * arrowSize,
+        std::cos(angle + M_PI / 3.0) * arrowSize);
+    QPointF p2 = to + QPointF(std::sin(angle - M_PI / 3.0) * arrowSize,
+        std::cos(angle - M_PI / 3.0) * arrowSize);
         
-    QPointF tailPoint = to + QPointF(std::sin(angle + M_PI) * arrowSize * 0.8,
-        std::cos(angle + M_PI) * arrowSize * 0.8);
+    QPointF tailPoint = to + QPointF(std::sin(angle + M_PI) * arrowSize * 0.5,
+        std::cos(angle + M_PI) * arrowSize * 0.5);
 
     QPolygonF head;
     head << to << p1 << tailPoint << p2;
