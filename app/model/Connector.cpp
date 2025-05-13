@@ -41,10 +41,28 @@ void Connector::paint(QPainter& p) const
 {
     if (!src) return;
 
-    QPointF p1 = anchorPoint(src, tempEnd);
+    // 获取初始参考点
+    QPointF dstPoint = dst ? dst->bounds.center() : tempEnd;
+    QPointF srcPoint = src->bounds.center();
+    
+    // 迭代计算，使起点和终点互相影响
+    // 第一次计算：起点基于目标中心点
+    QPointF p1 = anchorPoint(src, dstPoint);
+    
+    // 第二次计算：终点基于新的起点
     QPointF p2 = dst ? anchorPoint(dst, p1) : tempEnd;
+    
+    // 第三次计算：起点基于新的终点（再次调整）
+    p1 = anchorPoint(src, p2);
 
     p.setPen(QPen(color, width));
     p.drawLine(p1, p2);
+    
+    // 绘制终点箭头
     drawArrow(p, p1, p2);
+    
+    // 如果是双向箭头，则在起点也绘制箭头
+    if (bidirectional && dst) {
+        drawArrow(p, p2, p1);
+    }
 }

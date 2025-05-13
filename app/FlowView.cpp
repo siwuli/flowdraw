@@ -225,11 +225,19 @@ void FlowView::mousePressEvent(QMouseEvent* e)
 
     /* --- 4. 普通选择 --- */
     selectedIndex_ = -1;
-    for (int i = shapes_.size() - 1; i >= 0; --i) {
-        if (shapes_[i]->hitTest(docPos)) {
-            selectedIndex_ = i;
-            dragStart_ = docPos;
-            break;
+    selectedConnectorIndex_ = -1;
+    
+    // 首先尝试选择连接线
+    selectedConnectorIndex_ = hitTestConnector(docPos);
+    
+    // 如果没有选中连接线，再尝试选择图形
+    if (selectedConnectorIndex_ == -1) {
+        for (int i = shapes_.size() - 1; i >= 0; --i) {
+            if (shapes_[i]->hitTest(docPos)) {
+                selectedIndex_ = i;
+                dragStart_ = docPos;
+                break;
+            }
         }
     }
 
@@ -513,39 +521,82 @@ void FlowView::contextMenuEvent(QContextMenuEvent* e)
     // 将位置从视图坐标转换为文档坐标
     QPointF docPos = viewToDoc(e->pos());
     
-    // 先进行hit-test，如果右键点击到了图形，将其设为当前选中
-    selectedIndex_ = -1;
-    for (int i = shapes_.size() - 1; i >= 0; --i) {
-        if (shapes_[i]->hitTest(docPos)) {
-            selectedIndex_ = i;
-            break;
+    // 先进行hit-test，查看是否点击了连接线
+    selectedConnectorIndex_ = hitTestConnector(docPos);
+    
+    // 如果没有点击到连接线，再检查是否点击了图形
+    if (selectedConnectorIndex_ == -1) {
+        // 查找点击的图形
+        selectedIndex_ = -1;
+        for (int i = shapes_.size() - 1; i >= 0; --i) {
+            if (shapes_[i]->hitTest(docPos)) {
+                selectedIndex_ = i;
+                break;
+            }
         }
+    } else {
+        // 如果点击了连接线，清除图形选择
+        selectedIndex_ = -1;
     }
+    
     update();
     updatePropertyPanel();
 
     QMenu menu(this);
 
-    // 如果在页面内右键，则显示图形操作菜单
+    // 如果在页面内右键，则显示菜单
     if (docPos.x() >= 0 && docPos.y() >= 0 && 
         docPos.x() <= pageSize_.width() && docPos.y() <= pageSize_.height()) {
         
-        auto actCopy = menu.addAction(tr("Copy\tCtrl+C"), this, &FlowView::copySelection);
-        auto actCut = menu.addAction(tr("Cut\tCtrl+X"), this, &FlowView::cutSelection);
-        auto actPaste = menu.addAction(tr("Paste\tCtrl+V"), this, &FlowView::pasteClipboard);
-        menu.addSeparator();
-        auto actDel = menu.addAction(tr("Delete\tDel"), this, &FlowView::deleteSelection);
-        menu.addSeparator();
-        menu.addAction(tr("Bring to Front\tCtrl+]"), this, &FlowView::bringToFront);
-        menu.addAction(tr("Send to Back\tCtrl+["), this, &FlowView::sendToBack);
-        menu.addAction(tr("Move Up\tCtrl+up"), this, &FlowView::moveUp);
-        menu.addAction(tr("Move Down\tCtrl+down"), this, &FlowView::moveDown);
+        // 如果选中了连接线
+        if (selectedConnectorIndex_ != -1) {
+            // 创建连接线菜单
+            Connector& conn = connectors_[selectedConnectorIndex_];
+            
+            // 添加双向箭头切换选项
+            QAction* actBidirectional = menu.addAction(tr("Bidirectional"));
+            actBidirectional->setCheckable(true);
+            actBidirectional->setChecked(conn.bidirectional);
+            connect(actBidirectional, &QAction::toggled, this, [this, &conn](bool checked) {
+                conn.bidirectional = checked;
+                update();
+            });
+            
+            menu.addSeparator();
+            
+            // 添加删除连接线选项
+            QAction* actDeleteConn = menu.addAction(tr("Delete Connection"));
+            connect(actDeleteConn, &QAction::triggered, this, [this]() {
+                if (selectedConnectorIndex_ >= 0 && selectedConnectorIndex_ < connectors_.size()) {
+                    connectors_.erase(connectors_.begin() + selectedConnectorIndex_);
+                    selectedConnectorIndex_ = -1;
+                    update();
+                }
+            });
+        }
+        // 如果选中了图形
+        else if (selectedIndex_ != -1) {
+            auto actCopy = menu.addAction(tr("Copy\tCtrl+C"), this, &FlowView::copySelection);
+            auto actCut = menu.addAction(tr("Cut\tCtrl+X"), this, &FlowView::cutSelection);
+            auto actPaste = menu.addAction(tr("Paste\tCtrl+V"), this, &FlowView::pasteClipboard);
+            menu.addSeparator();
+            auto actDel = menu.addAction(tr("Delete\tDel"), this, &FlowView::deleteSelection);
+            menu.addSeparator();
+            menu.addAction(tr("Bring to Front\tCtrl+]"), this, &FlowView::bringToFront);
+            menu.addAction(tr("Send to Back\tCtrl+["), this, &FlowView::sendToBack);
+            menu.addAction(tr("Move Up\tCtrl+up"), this, &FlowView::moveUp);
+            menu.addAction(tr("Move Down\tCtrl+down"), this, &FlowView::moveDown);
 
-        // 控制是否有选中图形决定复制/粘贴的启用
-        bool hasSel = selectedIndex_ != -1;
-        actCopy->setEnabled(hasSel);
-        actCut->setEnabled(hasSel);
-        actDel->setEnabled(hasSel);
+            // 控制是否有选中图形决定复制/粘贴的启用
+            bool hasSel = selectedIndex_ != -1;
+            actCopy->setEnabled(hasSel);
+            actCut->setEnabled(hasSel);
+            actDel->setEnabled(hasSel);
+        }
+        // 如果在空白处右击
+        else {
+            auto actPaste = menu.addAction(tr("Paste\tCtrl+V"), this, &FlowView::pasteClipboard);
+        }
     }
     
     // 添加视图控制菜单
@@ -759,6 +810,7 @@ bool FlowView::saveToFile(const QString& filename)
             connObj["dst"] = dstIdx;
             connObj["color"] = conn.color.name(QColor::HexArgb);
             connObj["width"] = conn.width;
+            connObj["bidirectional"] = conn.bidirectional;
             connArray.append(connObj);
         }
     }
@@ -847,6 +899,7 @@ bool FlowView::loadFromFile(const QString& filename)
                 conn.dst = shapes_[dstIdx].get();
                 conn.color = QColor(connObj["color"].toString("#ff000000"));
                 conn.width = connObj["width"].toDouble(1.0);
+                conn.bidirectional = connObj["bidirectional"].toBool(false);
                 connectors_.push_back(conn);
             }
         }
@@ -1284,19 +1337,29 @@ void FlowView::resizeRect(QRectF& rect, ResizeHandle handle, const QPointF& offs
 // 更新属性面板显示，包括尺寸属性
 void FlowView::updatePropertyPanel()
 {
-    if (selectedIndex_ == -1) {
-        emit shapeAttr({}, {}, -1);
-        emit shapeSize(0, 0);
+    // 如果选中了连接线
+    if (selectedConnectorIndex_ != -1) {
+        auto& conn = connectors_[selectedConnectorIndex_];
+        emit shapeAttr({}, conn.color, conn.width);
+        emit shapeSize(0, 0);  // 连接线没有尺寸属性
+        return;
+    }
+
+    // 如果选中了图形
+    if (selectedIndex_ != -1) {
+        auto* shape = shapes_[selectedIndex_].get();
+        emit shapeAttr(shape->fillColor, shape->strokeColor, shape->strokeWidth);
+        
+        // 发送尺寸信息
+        int width = shape->bounds.width();
+        int height = shape->bounds.height();
+        emit shapeSize(width, height);
         return;
     }
     
-    auto* shape = shapes_[selectedIndex_].get();
-    emit shapeAttr(shape->fillColor, shape->strokeColor, shape->strokeWidth);
-    
-    // 发送尺寸信息
-    int width = shape->bounds.width();
-    int height = shape->bounds.height();
-    emit shapeSize(width, height);
+    // 如果没有选中任何内容
+    emit shapeAttr({}, {}, -1);
+    emit shapeSize(0, 0);
 }
 
 // 设置对象宽度
@@ -1358,4 +1421,71 @@ void FlowView::setToolMode(ToolMode m)
     }
     
     update();
+}
+
+// 查找点击了哪个连接线
+int FlowView::hitTestConnector(const QPointF& pt) const
+{
+    const double hitDistance = 5.0; // 点击误差范围
+    
+    for (int i = 0; i < connectors_.size(); ++i) {
+        const Connector& conn = connectors_[i];
+        if (!conn.src || !conn.dst) continue;
+        
+        // 获取连接线的两个端点
+        QPointF p1 = conn.src->getConnectionPoint(conn.dst->bounds.center());
+        QPointF p2 = conn.dst->getConnectionPoint(p1);
+        // 再次调整起点
+        p1 = conn.src->getConnectionPoint(p2);
+        
+        // 计算点到直线的距离
+        QLineF line(p1, p2);
+        QPointF v = line.p2() - line.p1();
+        double len = std::sqrt(v.x() * v.x() + v.y() * v.y());
+        
+        if (len < 1e-6) continue; // 防止除以0
+        
+        // 标准化方向向量
+        v /= len;
+        
+        // 计算pt到线段p1-p2的投影
+        QPointF w = pt - line.p1();
+        double proj = QPointF::dotProduct(w, v);
+        
+        // 如果投影在线段范围外，跳过
+        if (proj < 0 || proj > len) continue;
+        
+        // 计算点到直线的垂直距离
+        QPointF projPoint = line.p1() + v * proj;
+        double distance = QLineF(pt, projPoint).length();
+        
+        // 如果距离足够小，说明点击在这条线上
+        if (distance <= hitDistance) {
+            return i;
+        }
+    }
+    
+    return -1;
+}
+
+// 设置连接线为双向箭头
+void FlowView::setConnectorBidirectional(bool bidirectional)
+{
+    if (selectedConnectorIndex_ >= 0 && selectedConnectorIndex_ < connectors_.size()) {
+        connectors_[selectedConnectorIndex_].bidirectional = bidirectional;
+        update();
+    }
+}
+
+// 切换连接线箭头方向
+void FlowView::toggleConnectorDirection()
+{
+    if (selectedConnectorIndex_ >= 0 && selectedConnectorIndex_ < connectors_.size()) {
+        Connector& conn = connectors_[selectedConnectorIndex_];
+        
+        // 交换起点和终点
+        std::swap(conn.src, conn.dst);
+        
+        update();
+    }
 }

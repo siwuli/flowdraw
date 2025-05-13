@@ -64,6 +64,10 @@ public slots:
     // 对象尺寸设置
     void setObjectWidth(int width);
     void setObjectHeight(int height);
+    
+    // 连接线属性设置
+    void setConnectorBidirectional(bool bidirectional);
+    void toggleConnectorDirection();
 
     void updateConnectorsFor(Shape* movedShape);
 
@@ -118,6 +122,9 @@ protected:
     
     // 更新属性面板显示
     void updatePropertyPanel();
+    
+    // 查找点击了哪个连接线
+    int hitTestConnector(const QPointF& pt) const;
 
 private:
     /* ---------- 数据成员 ---------- */
@@ -126,8 +133,9 @@ private:
     std::vector<std::unique_ptr<Shape>> shapes_; // 所有图形元素
     std::vector<Connector> connectors_;          // 所有连接线
     Connector currentConn_;                      // 当前正在绘制的临时连接线
-
-    int     selectedIndex_ = -1;
+    
+    int     selectedIndex_ = -1;   // 选中的图形索引
+    int     selectedConnectorIndex_ = -1; // 选中的连接线索引
     QPointF dragStart_;
     
     // 调整大小相关

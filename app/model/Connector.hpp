@@ -2,7 +2,7 @@
 #include <QPainter>
 #include "Shape.hpp"
 
-/* 用直线连接两个端点、起点直指向图形： */
+/* 用直线连接两个端点，支持单向和双向箭头： */
 class Connector
 {
 public:
@@ -13,6 +13,9 @@ public:
     // 添加颜色和宽度属性
     QColor color = Qt::black;   // 连接线颜色
     qreal width = 1.5;          // 连接线宽度
+    
+    // 箭头类型
+    bool bidirectional = false; // 是否为双向箭头
 
     void paint(QPainter& p) const;
 
