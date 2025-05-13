@@ -9,18 +9,23 @@ QPointF Connector::anchorPoint(const Shape* s, const QPointF& ref) const
 void Connector::drawArrow(QPainter& p, const QPointF& from, const QPointF& to) const
 {
     QLineF line(from, to);
-    constexpr double arrowSize = 12;
+    constexpr double arrowSize = 14;
     double angle = std::atan2(-line.dy(), line.dx());
 
-    QPointF p1 = to + QPointF(std::sin(angle + M_PI / 2.5) * arrowSize,
-        std::cos(angle + M_PI / 2.5) * arrowSize);
-    QPointF p2 = to + QPointF(std::sin(angle - M_PI / 2.5) * arrowSize,
-        std::cos(angle - M_PI / 2.5) * arrowSize);
+    QPointF p1 = to + QPointF(std::sin(angle + M_PI / 2.2) * arrowSize,
+        std::cos(angle + M_PI / 2.2) * arrowSize);
+    QPointF p2 = to + QPointF(std::sin(angle - M_PI / 2.2) * arrowSize,
+        std::cos(angle - M_PI / 2.2) * arrowSize);
+        
+    QPointF tailPoint = to + QPointF(std::sin(angle + M_PI) * arrowSize * 0.8,
+        std::cos(angle + M_PI) * arrowSize * 0.8);
 
     QPolygonF head;
-    head << to << p1 << p2;
+    head << to << p1 << tailPoint << p2;
     
     QPen originalPen = p.pen();
+    QBrush originalBrush = p.brush();
+    
     p.setBrush(color);
     
     QPen arrowPen(color.darker(120), width + 0.5);
@@ -29,6 +34,7 @@ void Connector::drawArrow(QPainter& p, const QPointF& from, const QPointF& to) c
     p.drawPolygon(head);
     
     p.setPen(originalPen);
+    p.setBrush(originalBrush);
 }
 
 void Connector::paint(QPainter& p) const
