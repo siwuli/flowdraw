@@ -3,20 +3,7 @@
 
 QPointF Connector::anchorPoint(const Shape* s, const QPointF& ref) const
 {
-    const QRectF& b = s->bounds;
-    QPointF mids[4] = {
-        {(b.left() + b.right()) / 2, b.top()},
-        {b.right(), (b.top() + b.bottom()) / 2},
-        {(b.left() + b.right()) / 2, b.bottom()},
-        {b.left(), (b.top() + b.bottom()) / 2}
-    };
-    QPointF best = mids[0];
-    qreal bestDist = QLineF(ref, best).length();
-    for (int i = 1; i < 4; ++i) {
-        qreal d = QLineF(ref, mids[i]).length();
-        if (d < bestDist) { best = mids[i]; bestDist = d; }
-    }
-    return best;
+    return s->getConnectionPoint(ref);
 }
 
 void Connector::drawArrow(QPainter& p, const QPointF& from, const QPointF& to) const

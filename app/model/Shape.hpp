@@ -19,6 +19,25 @@ public:
     // 序列化函数
     virtual QJsonObject toJson() const = 0;
     virtual void fromJson(const QJsonObject&) = 0;
+    
+    // 获取连接点方法
+    virtual QPointF getConnectionPoint(const QPointF& ref) const {
+        // 默认实现：使用矩形边框的中点
+        const QRectF& b = bounds;
+        QPointF mids[4] = {
+            {(b.left() + b.right()) / 2, b.top()},
+            {b.right(), (b.top() + b.bottom()) / 2},
+            {(b.left() + b.right()) / 2, b.bottom()},
+            {b.left(), (b.top() + b.bottom()) / 2}
+        };
+        QPointF best = mids[0];
+        qreal bestDist = QLineF(ref, best).length();
+        for (int i = 1; i < 4; ++i) {
+            qreal d = QLineF(ref, mids[i]).length();
+            if (d < bestDist) { best = mids[i]; bestDist = d; }
+        }
+        return best;
+    }
 
     QRectF bounds;   // 外围框，用于移动和选中
     QColor  fillColor = Qt::white;   

@@ -5,5 +5,6 @@
         <file>icons/ellipse.svg</file>
         <file>icons/connector.svg</file>
         <file>icons/diamond.svg</file>
+        <file>icons/triangle.svg</file>
     </qresource>
 </RCC> 

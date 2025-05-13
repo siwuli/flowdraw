@@ -15,6 +15,7 @@
 #include <QMessageBox>
 #include <QToolButton>
 #include <QMenu>
+#include <QDebug>
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -145,6 +146,7 @@ MainWindow::MainWindow(QWidget* parent)
     auto actRect = shapesMenu->addAction(tr("Rectangle"));
     auto actEllipse = shapesMenu->addAction(tr("Ellipse"));
     auto actDiamond = shapesMenu->addAction(tr("Diamond"));
+    auto actTriangle = shapesMenu->addAction(tr("Triangle"));
     
     // 设置菜单到按钮
     shapesButton->setMenu(shapesMenu);
@@ -177,6 +179,13 @@ MainWindow::MainWindow(QWidget* parent)
     connect(actDiamond, &QAction::triggered, this, [view] {
         view->clearSelection();
         view->setToolMode(FlowView::ToolMode::DrawDiamond);
+        });
+        
+    //三角形按钮
+    connect(actTriangle, &QAction::triggered, this, [view] {
+        view->clearSelection();
+        qDebug() << "Triangle draw mode activated";
+        view->setToolMode(FlowView::ToolMode::DrawTriangle);
         });
 
     connect(actLine, &QAction::triggered, this, [view] {
@@ -256,6 +265,12 @@ MainWindow::MainWindow(QWidget* parent)
     itDiamond->setToolTip(tr("Diamond"));
     palette->addItem(itDiamond);
 
+    // 三角形图标
+    auto* itTriangle = new QListWidgetItem(QIcon(":/icons/triangle.svg"), "");
+    itTriangle->setData(Qt::UserRole, "triangle");
+    itTriangle->setToolTip(tr("Triangle"));
+    palette->addItem(itTriangle);
+
     // 拖拽实现
     palette->setDefaultDropAction(Qt::CopyAction);
     palette->installEventFilter(palette);          // 让 lambda 捕获
@@ -294,6 +309,9 @@ MainWindow::MainWindow(QWidget* parent)
             } else if (type == "diamond") {
                 view->clearSelection();
                 view->setToolMode(FlowView::ToolMode::DrawDiamond);
+            } else if (type == "triangle") {
+                view->clearSelection();
+                view->setToolMode(FlowView::ToolMode::DrawTriangle);
             }
         });
 

@@ -19,6 +19,7 @@
 #include <QSvgGenerator>
 #include "model/TextEditDialog.hpp"
 #include "model/Diamond.hpp"
+#include "model/Triangle.hpp"
 
 /* =====  ===== */
 FlowView::FlowView(QWidget* parent)
@@ -132,6 +133,15 @@ void FlowView::mousePressEvent(QMouseEvent* e)
         diamond->bounds.setTopLeft(docPos);
         diamond->bounds.setBottomRight(docPos);
         shapes_.push_back(std::move(diamond));
+        selectedIndex_ = int(shapes_.size()) - 1;
+        dragStart_ = docPos;
+        return;
+    }
+    if (mode_ == ToolMode::DrawTriangle) {
+        auto triangle = std::make_unique<Triangle>();
+        triangle->bounds.setTopLeft(docPos);
+        triangle->bounds.setBottomRight(docPos);
+        shapes_.push_back(std::move(triangle));
         selectedIndex_ = int(shapes_.size()) - 1;
         dragStart_ = docPos;
         return;
@@ -273,7 +283,7 @@ void FlowView::mouseMoveEvent(QMouseEvent* e)
     }
 
     /* --- 1. 调整矩形大小 --- */
-    if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse || mode_ == ToolMode::DrawDiamond) &&
+    if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse || mode_ == ToolMode::DrawDiamond || mode_ == ToolMode::DrawTriangle) &&
         selectedIndex_ != -1 && (e->buttons() & Qt::LeftButton))
     {
         auto& r = shapes_[selectedIndex_]->bounds;
@@ -409,7 +419,7 @@ void FlowView::mouseReleaseEvent(QMouseEvent* e)
     }
     
     /* --- 完成矩形/椭圆绘制 --- */
-    if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse || mode_ == ToolMode::DrawDiamond) && 
+    if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse || mode_ == ToolMode::DrawDiamond || mode_ == ToolMode::DrawTriangle) && 
         selectedIndex_ != -1 && e->button() == Qt::LeftButton)
     {
         auto& r = shapes_[selectedIndex_]->bounds;
@@ -483,6 +493,7 @@ void FlowView::dropEvent(QDropEvent* e)
     if (type == "rect")    s = std::make_unique<Rect>();
     else if (type == "ellipse") s = std::make_unique<Ellipse>();
     else if (type == "diamond") s = std::make_unique<Diamond>();
+    else if (type == "triangle") s = std::make_unique<Triangle>();
     if (!s) return;
     
     s->bounds = { docPos.x() - 50, docPos.y() - 30, 100, 60 };
@@ -574,9 +585,10 @@ void FlowView::pasteClipboard()
     if (type == "rect")    s = std::make_unique<Rect>();
     else if (type == "ellipse") s = std::make_unique<Ellipse>();
     else if (type == "diamond") s = std::make_unique<Diamond>();
+    else if (type == "triangle") s = std::make_unique<Triangle>();
     if (!s) return;
     s->fromJson(obj);
-    s->bounds.translate(10, 10);       // ��΢ƫ��
+    s->bounds.translate(10, 10);       // ΢ƫ
     shapes_.push_back(std::move(s));
     update();
 }
@@ -807,6 +819,8 @@ bool FlowView::loadFromFile(const QString& filename)
                 shape = std::make_unique<Ellipse>();
             } else if (type == "diamond") {
                 shape = std::make_unique<Diamond>();
+            } else if (type == "triangle") {
+                shape = std::make_unique<Triangle>();
             }
             
             if (shape) {
