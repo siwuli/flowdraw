@@ -114,9 +114,12 @@ MainWindow::MainWindow(QWidget* parent)
         }
     });
     
-    pageMenu->addAction(tr("Show Grid"), this, [view](bool checked) {
+    // 创建网格显示选项并设置初始状态与FlowView中的isGridVisible一致
+    auto gridAction = pageMenu->addAction(tr("Show Grid"), this, [view](bool checked) {
         view->setGridVisible(checked);
-    })->setCheckable(true);
+    });
+    gridAction->setCheckable(true);
+    gridAction->setChecked(view->isGridVisible());  // 设置初始状态
     
     // 添加视图菜单
     auto viewMenu = menuBar()->addMenu(tr("View"));
