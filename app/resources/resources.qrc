@@ -10,5 +10,6 @@
         <file>icons/hexagon.svg</file>
         <file>icons/octagon.svg</file>
         <file>icons/roundedrect.svg</file>
+        <file>icons/capsule.svg</file>
     </qresource>
 </RCC> 

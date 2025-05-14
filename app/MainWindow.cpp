@@ -151,6 +151,7 @@ MainWindow::MainWindow(QWidget* parent)
     auto actHexagon = shapesMenu->addAction(tr("Hexagon"));
     auto actOctagon = shapesMenu->addAction(tr("Octagon"));
     auto actRoundedRect = shapesMenu->addAction(tr("Rounded Rectangle"));
+    auto actCapsule = shapesMenu->addAction(tr("Capsule"));
     
     // 设置菜单到按钮
     shapesButton->setMenu(shapesMenu);
@@ -218,6 +219,13 @@ MainWindow::MainWindow(QWidget* parent)
         view->clearSelection();
         qDebug() << "Rounded Rectangle draw mode activated";
         view->setToolMode(FlowView::ToolMode::DrawRoundedRect);
+        });
+
+    //胶囊形状按钮
+    connect(actCapsule, &QAction::triggered, this, [view] {
+        view->clearSelection();
+        qDebug() << "Capsule draw mode activated";
+        view->setToolMode(FlowView::ToolMode::DrawCapsule);
         });
 
     connect(actLine, &QAction::triggered, this, [view] {
@@ -327,6 +335,12 @@ MainWindow::MainWindow(QWidget* parent)
     itRoundedRect->setToolTip(tr("Rounded Rectangle"));
     palette->addItem(itRoundedRect);
 
+    // 胶囊形状图标
+    auto* itCapsule = new QListWidgetItem(QIcon(":/icons/capsule.svg"), "");
+    itCapsule->setData(Qt::UserRole, "capsule");
+    itCapsule->setToolTip(tr("Capsule"));
+    palette->addItem(itCapsule);
+
     // 拖拽实现
     palette->setDefaultDropAction(Qt::CopyAction);
     palette->installEventFilter(palette);          // 让 lambda 捕获
@@ -380,6 +394,9 @@ MainWindow::MainWindow(QWidget* parent)
             } else if (type == "roundedrect") {
                 view->clearSelection();
                 view->setToolMode(FlowView::ToolMode::DrawRoundedRect);
+            } else if (type == "capsule") {
+                view->clearSelection();
+                view->setToolMode(FlowView::ToolMode::DrawCapsule);
             }
         });
 
