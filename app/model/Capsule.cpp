@@ -17,56 +17,42 @@ void Capsule::paint(QPainter& p, bool selected) const
     // 创建胶囊路径
     QPainterPath path;
     
-    if (bounds.width() >= bounds.height()) {
+    // 获取边界的宽度和高度
+    qreal w = bounds.width();
+    qreal h = bounds.height();
+    
+    if (w >= h) {
         // 水平胶囊 - 左右两端为半圆
-        qreal radius = bounds.height() / 2.0;
+        qreal diameter = h; // 半圆的直径等于高度
+        qreal radius = diameter / 2.0;
         
-        // 圆心坐标
-        qreal leftCenterX = bounds.left() + radius;
-        qreal rightCenterX = bounds.right() - radius;
-        qreal centerY = bounds.center().y();
+        // 左右半圆的矩形区域
+        QRectF leftCircle(bounds.left(), bounds.top(), diameter, diameter);
+        QRectF rightCircle(bounds.right() - diameter, bounds.top(), diameter, diameter);
         
-        // 从左半圆的最右上点开始
-        path.moveTo(leftCenterX, bounds.top());
-        
-        // 画右上方的直线
-        path.lineTo(rightCenterX, bounds.top());
-        
-        // 画右半圆
-        path.arcTo(rightCenterX - radius, centerY - radius, 2 * radius, 2 * radius, 90, -180);
-        
-        // 画左下方的直线
-        path.lineTo(leftCenterX, bounds.bottom());
-        
-        // 画左半圆
-        path.arcTo(leftCenterX - radius, centerY - radius, 2 * radius, 2 * radius, -90, -180);
+        // 绘制路径：顺时针方向
+        path.moveTo(bounds.left() + radius, bounds.top());                   // 左上角起点
+        path.lineTo(bounds.right() - radius, bounds.top());                  // 向右到右上角
+        path.arcTo(rightCircle, 90, -180);                                   // 右半圆：从90度开始，逆时针旋转180度
+        path.lineTo(bounds.left() + radius, bounds.bottom());                // 向左到左下角
+        path.arcTo(leftCircle, 270, -180);                                   // 左半圆：从270度开始，逆时针旋转180度
+        path.closeSubpath();
     } else {
         // 垂直胶囊 - 上下两端为半圆
-        qreal radius = bounds.width() / 2.0;
+        qreal diameter = w; // 半圆的直径等于宽度
+        qreal radius = diameter / 2.0;
         
-        // 圆心坐标
-        qreal topCenterY = bounds.top() + radius;
-        qreal bottomCenterY = bounds.bottom() - radius;
-        qreal centerX = bounds.center().x();
+        // 上下半圆的矩形区域
+        QRectF topCircle(bounds.left(), bounds.top(), diameter, diameter);
+        QRectF bottomCircle(bounds.left(), bounds.bottom() - diameter, diameter, diameter);
         
-        // 从上半圆的最左下点开始
-        path.moveTo(bounds.left(), topCenterY);
-        
-        // 画左下方的直线
-        path.lineTo(bounds.left(), bottomCenterY);
-        
-        // 画下半圆
-        path.arcTo(centerX - radius, bottomCenterY - radius, 2 * radius, 2 * radius, 180, -180);
-        
-        // 画右上方的直线
-        path.lineTo(bounds.right(), topCenterY);
-        
-        // 画上半圆
-        path.arcTo(centerX - radius, topCenterY - radius, 2 * radius, 2 * radius, 0, -180);
+        // 绘制路径：顺时针方向
+        path.moveTo(bounds.left(), bounds.top() + radius);                   // 左上角起点
+        path.arcTo(topCircle, 180, -180);                                    // 上半圆：从180度开始，逆时针旋转180度
+        path.lineTo(bounds.right(), bounds.bottom() - radius);               // 向下到右下角
+        path.arcTo(bottomCircle, 0, -180);                                   // 下半圆：从0度开始，逆时针旋转180度
+        path.closeSubpath();
     }
-    
-    // 闭合路径
-    path.closeSubpath();
     
     p.drawPath(path);
     
@@ -92,56 +78,42 @@ bool Capsule::hitTest(const QPointF& pt) const
     
     QPainterPath path;
     
-    if (bounds.width() >= bounds.height()) {
+    // 获取边界的宽度和高度
+    qreal w = bounds.width();
+    qreal h = bounds.height();
+    
+    if (w >= h) {
         // 水平胶囊 - 左右两端为半圆
-        qreal radius = bounds.height() / 2.0;
+        qreal diameter = h; // 半圆的直径等于高度
+        qreal radius = diameter / 2.0;
         
-        // 圆心坐标
-        qreal leftCenterX = bounds.left() + radius;
-        qreal rightCenterX = bounds.right() - radius;
-        qreal centerY = bounds.center().y();
+        // 左右半圆的矩形区域
+        QRectF leftCircle(bounds.left(), bounds.top(), diameter, diameter);
+        QRectF rightCircle(bounds.right() - diameter, bounds.top(), diameter, diameter);
         
-        // 从左半圆的最右上点开始
-        path.moveTo(leftCenterX, bounds.top());
-        
-        // 画右上方的直线
-        path.lineTo(rightCenterX, bounds.top());
-        
-        // 画右半圆
-        path.arcTo(rightCenterX - radius, centerY - radius, 2 * radius, 2 * radius, 90, -180);
-        
-        // 画左下方的直线
-        path.lineTo(leftCenterX, bounds.bottom());
-        
-        // 画左半圆
-        path.arcTo(leftCenterX - radius, centerY - radius, 2 * radius, 2 * radius, -90, -180);
+        // 绘制路径：顺时针方向
+        path.moveTo(bounds.left() + radius, bounds.top());                   // 左上角起点
+        path.lineTo(bounds.right() - radius, bounds.top());                  // 向右到右上角
+        path.arcTo(rightCircle, 90, -180);                                   // 右半圆：从90度开始，逆时针旋转180度
+        path.lineTo(bounds.left() + radius, bounds.bottom());                // 向左到左下角
+        path.arcTo(leftCircle, 270, -180);                                   // 左半圆：从270度开始，逆时针旋转180度
+        path.closeSubpath();
     } else {
         // 垂直胶囊 - 上下两端为半圆
-        qreal radius = bounds.width() / 2.0;
+        qreal diameter = w; // 半圆的直径等于宽度
+        qreal radius = diameter / 2.0;
         
-        // 圆心坐标
-        qreal topCenterY = bounds.top() + radius;
-        qreal bottomCenterY = bounds.bottom() - radius;
-        qreal centerX = bounds.center().x();
+        // 上下半圆的矩形区域
+        QRectF topCircle(bounds.left(), bounds.top(), diameter, diameter);
+        QRectF bottomCircle(bounds.left(), bounds.bottom() - diameter, diameter, diameter);
         
-        // 从上半圆的最左下点开始
-        path.moveTo(bounds.left(), topCenterY);
-        
-        // 画左下方的直线
-        path.lineTo(bounds.left(), bottomCenterY);
-        
-        // 画下半圆
-        path.arcTo(centerX - radius, bottomCenterY - radius, 2 * radius, 2 * radius, 180, -180);
-        
-        // 画右上方的直线
-        path.lineTo(bounds.right(), topCenterY);
-        
-        // 画上半圆
-        path.arcTo(centerX - radius, topCenterY - radius, 2 * radius, 2 * radius, 0, -180);
+        // 绘制路径：顺时针方向
+        path.moveTo(bounds.left(), bounds.top() + radius);                   // 左上角起点
+        path.arcTo(topCircle, 180, -180);                                    // 上半圆：从180度开始，逆时针旋转180度
+        path.lineTo(bounds.right(), bounds.bottom() - radius);               // 向下到右下角
+        path.arcTo(bottomCircle, 0, -180);                                   // 下半圆：从0度开始，逆时针旋转180度
+        path.closeSubpath();
     }
-    
-    // 闭合路径
-    path.closeSubpath();
     
     return path.contains(pt);
 }
@@ -163,212 +135,131 @@ QPointF Capsule::getConnectionPoint(const QPointF& ref) const
     qreal length = std::sqrt(direction.x() * direction.x() + direction.y() * direction.y());
     QPointF unitDir = direction / length;
     
-    // 创建胶囊路径
-    QPainterPath path;
+    // 获取边界的宽度和高度
+    qreal w = bounds.width();
+    qreal h = bounds.height();
     
-    if (bounds.width() >= bounds.height()) {
+    if (w >= h) {
         // 水平胶囊 - 左右两端为半圆
-        qreal radius = bounds.height() / 2.0;
+        qreal diameter = h; // 半圆的直径等于高度
+        qreal radius = diameter / 2.0;
         
-        // 圆心坐标
-        qreal leftCenterX = bounds.left() + radius;
-        qreal rightCenterX = bounds.right() - radius;
+        // 计算矩形部分的边界位置
+        qreal rectLeft = bounds.left() + radius;
+        qreal rectRight = bounds.right() - radius;
         qreal centerY = bounds.center().y();
         
-        // 从左半圆的最右上点开始
-        path.moveTo(leftCenterX, bounds.top());
+        // 检查是否与矩形部分相交
+        if (unitDir.y() != 0) {
+            // 计算与水平边界的交点
+            qreal t;
+            QPointF intersection;
+            qreal y;
+            
+            if (unitDir.y() > 0) {
+                y = bounds.bottom();
+            } else {
+                y = bounds.top();
+            }
+            
+            t = (y - center.y()) / unitDir.y();
+            intersection.setX(center.x() + t * unitDir.x());
+            intersection.setY(y);
+            
+            // 检查交点是否在矩形部分
+            if (intersection.x() >= rectLeft && intersection.x() <= rectRight) {
+                return intersection;
+            }
+        }
         
-        // 画右上方的直线
-        path.lineTo(rightCenterX, bounds.top());
+        // 检查是否与半圆部分相交
+        QPointF circleCenter;
+        if (unitDir.x() >= 0) {
+            circleCenter = QPointF(rectRight, centerY);
+        } else {
+            circleCenter = QPointF(rectLeft, centerY);
+        }
         
-        // 画右半圆
-        path.arcTo(rightCenterX - radius, centerY - radius, 2 * radius, 2 * radius, 90, -180);
+        // 计算从圆心到交点的向量
+        QPointF toCircle = circleCenter - center;
+        qreal distToCircle = QLineF(center, circleCenter).length();
+        qreal dotProduct = toCircle.x() * unitDir.x() + toCircle.y() * unitDir.y();
         
-        // 画左下方的直线
-        path.lineTo(leftCenterX, bounds.bottom());
+        // 计算圆上的交点
+        qreal projLength;
         
-        // 画左半圆
-        path.arcTo(leftCenterX - radius, centerY - radius, 2 * radius, 2 * radius, -90, -180);
+        if (distToCircle < 1e-6) {
+            // 极少见的情况：圆心与胶囊中心重合
+            projLength = radius;
+        } else {
+            projLength = dotProduct / distToCircle;
+        }
+        
+        QPointF closestPoint = circleCenter - projLength * (toCircle / distToCircle);
+        QPointF pointOnCircle = circleCenter + radius * ((closestPoint - circleCenter) / QLineF(closestPoint, circleCenter).length());
+        
+        return pointOnCircle;
     } else {
         // 垂直胶囊 - 上下两端为半圆
-        qreal radius = bounds.width() / 2.0;
+        qreal diameter = w; // 半圆的直径等于宽度
+        qreal radius = diameter / 2.0;
         
-        // 圆心坐标
-        qreal topCenterY = bounds.top() + radius;
-        qreal bottomCenterY = bounds.bottom() - radius;
+        // 计算矩形部分的边界位置
+        qreal rectTop = bounds.top() + radius;
+        qreal rectBottom = bounds.bottom() - radius;
         qreal centerX = bounds.center().x();
         
-        // 从上半圆的最左下点开始
-        path.moveTo(bounds.left(), topCenterY);
-        
-        // 画左下方的直线
-        path.lineTo(bounds.left(), bottomCenterY);
-        
-        // 画下半圆
-        path.arcTo(centerX - radius, bottomCenterY - radius, 2 * radius, 2 * radius, 180, -180);
-        
-        // 画右上方的直线
-        path.lineTo(bounds.right(), topCenterY);
-        
-        // 画上半圆
-        path.arcTo(centerX - radius, topCenterY - radius, 2 * radius, 2 * radius, 0, -180);
-    }
-    
-    // 闭合路径
-    path.closeSubpath();
-    
-    // 从中心点向外延伸足够长的线段
-    qreal maxDist = bounds.width() + bounds.height();
-    QLineF line(center, center + unitDir * maxDist);
-    
-    // 查找交点
-    QPointF result = center;
-    QPointF intersectionPoint;
-    
-    // 定义线段与路径轮廓的交点，我们简化计算
-    if (bounds.width() >= bounds.height()) {
-        // 水平胶囊
-        qreal radius = bounds.height() / 2.0;
-        qreal dx = std::abs(unitDir.x());
-        qreal dy = std::abs(unitDir.y());
-        
-        if (dy < 0.1) {
-            // 几乎水平
-            if (unitDir.x() > 0) {
-                result.setX(bounds.right());
-            } else {
-                result.setX(bounds.left());
-            }
-            result.setY(center.y());
-        } else if (dx < 0.1) {
-            // 几乎垂直
-            result.setX(center.x());
-            if (unitDir.y() > 0) {
-                result.setY(bounds.bottom());
-            } else {
-                result.setY(bounds.top());
-            }
-        } else {
-            // 斜向，需要考虑是否与圆弧相交
-            qreal slope = unitDir.y() / unitDir.x();
-            qreal halfHeight = bounds.height() / 2.0;
-            
-            // 检查与水平边的交点
+        // 检查是否与矩形部分相交
+        if (unitDir.x() != 0) {
+            // 计算与垂直边界的交点
+            qreal t;
+            QPointF intersection;
             qreal x;
-            if (unitDir.y() < 0) { // 向上
-                x = center.x() + (bounds.top() - center.y()) / slope;
-            } else { // 向下
-                x = center.x() + (bounds.bottom() - center.y()) / slope;
-            }
             
-            // 检查交点是否在矩形部分
-            if (x > bounds.left() + radius && x < bounds.right() - radius) {
-                // 与水平边相交
-                result.setX(x);
-                if (unitDir.y() < 0) {
-                    result.setY(bounds.top());
-                } else {
-                    result.setY(bounds.bottom());
-                }
-            } else {
-                // 与圆弧相交
-                qreal circleX;
-                if (unitDir.x() < 0) {
-                    circleX = bounds.left() + radius; // 左圆弧中心
-                } else {
-                    circleX = bounds.right() - radius; // 右圆弧中心
-                }
-                
-                // 计算与圆弧的交点
-                QPointF circleCenter(circleX, center.y());
-                QLineF lineToCircle(center, circleCenter);
-                qreal angle = lineToCircle.angle();
-                qreal angleOffset = 0;
-                
-                if (unitDir.y() < 0) { // 上半部分
-                    angleOffset = -std::atan(slope) * 180.0 / M_PI;
-                } else { // 下半部分
-                    angleOffset = std::atan(slope) * 180.0 / M_PI;
-                }
-                
-                qreal finalAngle = angle + angleOffset;
-                result.setX(circleX + radius * std::cos(finalAngle * M_PI / 180.0));
-                result.setY(center.y() + radius * std::sin(finalAngle * M_PI / 180.0));
-            }
-        }
-    } else {
-        // 垂直胶囊
-        qreal radius = bounds.width() / 2.0;
-        qreal dx = std::abs(unitDir.x());
-        qreal dy = std::abs(unitDir.y());
-        
-        if (dx < 0.1) {
-            // 几乎垂直
-            result.setX(center.x());
-            if (unitDir.y() > 0) {
-                result.setY(bounds.bottom());
-            } else {
-                result.setY(bounds.top());
-            }
-        } else if (dy < 0.1) {
-            // 几乎水平
             if (unitDir.x() > 0) {
-                result.setX(bounds.right());
+                x = bounds.right();
             } else {
-                result.setX(bounds.left());
+                x = bounds.left();
             }
-            result.setY(center.y());
-        } else {
-            // 斜向，需要考虑是否与圆弧相交
-            qreal slope = unitDir.y() / unitDir.x();
-            qreal halfWidth = bounds.width() / 2.0;
             
-            // 检查与垂直边的交点
-            qreal y;
-            if (unitDir.x() < 0) { // 向左
-                y = center.y() + slope * (bounds.left() - center.x());
-            } else { // 向右
-                y = center.y() + slope * (bounds.right() - center.x());
-            }
+            t = (x - center.x()) / unitDir.x();
+            intersection.setX(x);
+            intersection.setY(center.y() + t * unitDir.y());
             
             // 检查交点是否在矩形部分
-            if (y > bounds.top() + radius && y < bounds.bottom() - radius) {
-                // 与垂直边相交
-                if (unitDir.x() < 0) {
-                    result.setX(bounds.left());
-                } else {
-                    result.setX(bounds.right());
-                }
-                result.setY(y);
-            } else {
-                // 与圆弧相交
-                qreal circleY;
-                if (unitDir.y() < 0) {
-                    circleY = bounds.top() + radius; // 上圆弧中心
-                } else {
-                    circleY = bounds.bottom() - radius; // 下圆弧中心
-                }
-                
-                // 计算与圆弧的交点
-                QPointF circleCenter(center.x(), circleY);
-                QLineF lineToCircle(center, circleCenter);
-                qreal angle = lineToCircle.angle();
-                qreal angleOffset = 0;
-                
-                if (unitDir.x() < 0) { // 左半部分
-                    angleOffset = -std::atan(1.0/slope) * 180.0 / M_PI;
-                } else { // 右半部分
-                    angleOffset = std::atan(1.0/slope) * 180.0 / M_PI;
-                }
-                
-                qreal finalAngle = angle + angleOffset;
-                result.setX(center.x() + radius * std::cos(finalAngle * M_PI / 180.0));
-                result.setY(circleY + radius * std::sin(finalAngle * M_PI / 180.0));
+            if (intersection.y() >= rectTop && intersection.y() <= rectBottom) {
+                return intersection;
             }
         }
+        
+        // 检查是否与半圆部分相交
+        QPointF circleCenter;
+        if (unitDir.y() >= 0) {
+            circleCenter = QPointF(centerX, rectBottom);
+        } else {
+            circleCenter = QPointF(centerX, rectTop);
+        }
+        
+        // 计算从圆心到交点的向量
+        QPointF toCircle = circleCenter - center;
+        qreal distToCircle = QLineF(center, circleCenter).length();
+        qreal dotProduct = toCircle.x() * unitDir.x() + toCircle.y() * unitDir.y();
+        
+        // 计算圆上的交点
+        qreal projLength;
+        
+        if (distToCircle < 1e-6) {
+            // 极少见的情况：圆心与胶囊中心重合
+            projLength = radius;
+        } else {
+            projLength = dotProduct / distToCircle;
+        }
+        
+        QPointF closestPoint = circleCenter - projLength * (toCircle / distToCircle);
+        QPointF pointOnCircle = circleCenter + radius * ((closestPoint - circleCenter) / QLineF(closestPoint, circleCenter).length());
+        
+        return pointOnCircle;
     }
-    
-    return result;
 }
 
 QJsonObject Capsule::toJson() const
