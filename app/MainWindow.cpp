@@ -250,9 +250,8 @@ MainWindow::MainWindow(QWidget* parent)
     palette->setViewMode(QListView::IconMode);
     // 设置较大的图标
     palette->setIconSize(QSize(48, 48));
-    // 设置网格大小，保证每行两个图标
-    int gridWidth = ((palette->width() - 10) / 2);
-    palette->setGridSize(QSize(gridWidth, 70));
+    // 设置网格大小，仅为图标大小加上边距
+    palette->setGridSize(QSize(56, 56));
     // 调整内容流动方式和换行
     palette->setFlow(QListView::LeftToRight);
     palette->setWrapping(true);
@@ -260,6 +259,11 @@ MainWindow::MainWindow(QWidget* parent)
     // 禁止拖动位置
     palette->setMovement(QListView::Static);
     palette->setDragEnabled(true);
+    // 禁用文本标签
+    palette->setTextElideMode(Qt::ElideNone);
+    palette->setWordWrap(false);
+    palette->setItemAlignment(Qt::AlignCenter);
+    
     // 简洁美观的样式
     palette->setStyleSheet(
         "QListWidget {"
@@ -270,6 +274,7 @@ MainWindow::MainWindow(QWidget* parent)
         "   border: 1px solid #e0e0e0;"
         "   border-radius: 4px;"
         "   margin: 4px;"
+        "   text-align: center;"
         "}"
         "QListWidget::item:selected {"
         "   background-color: #e0e0f0;"
@@ -279,66 +284,80 @@ MainWindow::MainWindow(QWidget* parent)
         "   background-color: #f0f0f0;"
         "   border: 1px solid #c0c0d0;"
         "}"
+        "QListWidget::text {"
+        "   color: transparent;"
+        "   font-size: 0px;"
+        "}"
     );
-    
+
     // 连接器图标（不显示文本）
     auto* itConnector = new QListWidgetItem(QIcon(":/icons/connector.svg"), "");
     itConnector->setData(Qt::UserRole, "connector");
     itConnector->setToolTip(tr("Connector")); // 使用工具提示显示功能
+    itConnector->setSizeHint(QSize(48, 48)); // 只设置图标大小，不为文本留空间
     palette->addItem(itConnector);
     
     // 矩形图标
     auto* itRect = new QListWidgetItem(QIcon(":/icons/rect.svg"), "");
     itRect->setData(Qt::UserRole, "rect");
     itRect->setToolTip(tr("Rectangle"));
+    itRect->setSizeHint(QSize(48, 48));
     palette->addItem(itRect);
 
     // 椭圆图标
     auto* itEllipse = new QListWidgetItem(QIcon(":/icons/ellipse.svg"), "");
     itEllipse->setData(Qt::UserRole, "ellipse");
     itEllipse->setToolTip(tr("Ellipse"));
+    itEllipse->setSizeHint(QSize(48, 48));
     palette->addItem(itEllipse);
     
     // 菱形图标
     auto* itDiamond = new QListWidgetItem(QIcon(":/icons/diamond.svg"), "");
     itDiamond->setData(Qt::UserRole, "diamond");
     itDiamond->setToolTip(tr("Diamond"));
+    itDiamond->setSizeHint(QSize(48, 48));
     palette->addItem(itDiamond);
 
     // 三角形图标
     auto* itTriangle = new QListWidgetItem(QIcon(":/icons/triangle.svg"), "");
     itTriangle->setData(Qt::UserRole, "triangle");
     itTriangle->setToolTip(tr("Triangle"));
+    itTriangle->setSizeHint(QSize(48, 48));
     palette->addItem(itTriangle);
 
     // 五边形图标
     auto* itPentagon = new QListWidgetItem(QIcon(":/icons/pentagon.svg"), "");
     itPentagon->setData(Qt::UserRole, "pentagon");
     itPentagon->setToolTip(tr("Pentagon"));
+    itPentagon->setSizeHint(QSize(48, 48));
     palette->addItem(itPentagon);
 
     // 六边形图标
     auto* itHexagon = new QListWidgetItem(QIcon(":/icons/hexagon.svg"), "");
     itHexagon->setData(Qt::UserRole, "hexagon");
     itHexagon->setToolTip(tr("Hexagon"));
+    itHexagon->setSizeHint(QSize(48, 48));
     palette->addItem(itHexagon);
     
     // 八边形图标
     auto* itOctagon = new QListWidgetItem(QIcon(":/icons/octagon.svg"), "");
     itOctagon->setData(Qt::UserRole, "octagon");
     itOctagon->setToolTip(tr("Octagon"));
+    itOctagon->setSizeHint(QSize(48, 48));
     palette->addItem(itOctagon);
     
     // 圆角矩形图标
     auto* itRoundedRect = new QListWidgetItem(QIcon(":/icons/roundedrect.svg"), "");
     itRoundedRect->setData(Qt::UserRole, "roundedrect");
     itRoundedRect->setToolTip(tr("Rounded Rectangle"));
+    itRoundedRect->setSizeHint(QSize(48, 48));
     palette->addItem(itRoundedRect);
 
     // 胶囊形状图标
     auto* itCapsule = new QListWidgetItem(QIcon(":/icons/capsule.svg"), "");
     itCapsule->setData(Qt::UserRole, "capsule");
     itCapsule->setToolTip(tr("Capsule"));
+    itCapsule->setSizeHint(QSize(48, 48));
     palette->addItem(itCapsule);
 
     // 拖拽实现
