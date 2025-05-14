@@ -950,6 +950,8 @@ void FlowView::setFill(const QColor& c)
         shapes_[selectedIndex_]->fillColor = c;
         QJsonObject after = shapes_[selectedIndex_]->toJson();
         recordAction(ActionType::Property, selectedIndex_, before, after);
+        // 更新属性面板显示
+        updatePropertyPanel();
         update();
     }
 }
@@ -960,6 +962,8 @@ void FlowView::setStroke(const QColor& c)
         shapes_[selectedIndex_]->strokeColor = c;
         QJsonObject after = shapes_[selectedIndex_]->toJson();
         recordAction(ActionType::Property, selectedIndex_, before, after);
+        // 更新属性面板显示
+        updatePropertyPanel();
         update();
     }
 }
@@ -970,6 +974,8 @@ void FlowView::setWidth(qreal w)
         shapes_[selectedIndex_]->strokeWidth = w;
         QJsonObject after = shapes_[selectedIndex_]->toJson();
         recordAction(ActionType::Property, selectedIndex_, before, after);
+        // 更新属性面板显示
+        updatePropertyPanel();
         update();
     }
 }
