@@ -9,6 +9,7 @@
 #include "model/Ellipse.hpp"
 #include "model/RoundedRect.hpp"
 #include "model/Capsule.hpp"
+#include "model/RectTriangle.hpp"
 #include "model/Connector.hpp"     // 所有连接线
 
 // 操作类型枚举
@@ -50,7 +51,7 @@ public:
     explicit FlowView(QWidget* parent = nullptr);
 
     /* ---------- 工具模式 ---------- */
-    enum class ToolMode { None, DrawRect, DrawEllipse, DrawDiamond, DrawConnector, DrawTriangle, DrawPentagon, DrawHexagon, DrawOctagon, DrawRoundedRect, DrawCapsule };
+    enum class ToolMode { None, DrawRect, DrawEllipse, DrawDiamond, DrawConnector, DrawTriangle, DrawPentagon, DrawHexagon, DrawOctagon, DrawRoundedRect, DrawCapsule, DrawRectTriangle };
     void setToolMode(ToolMode m);
 
     /* ---------- 文件操作 ---------- */
@@ -132,6 +133,7 @@ protected:
     void contextMenuEvent(QContextMenuEvent*) override;
     
     void keyPressEvent(QKeyEvent*) override;  // 处理键盘事件
+    void keyReleaseEvent(QKeyEvent*) override;  // 处理键盘释放事件
 
     // 视图转换函数，将视图坐标转换到文档坐标
     QPointF viewToDoc(const QPointF& viewPoint) const;

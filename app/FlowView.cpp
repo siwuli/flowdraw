@@ -26,6 +26,7 @@
 #include "model/Octagon.hpp"
 #include "model/RoundedRect.hpp"
 #include "model/Capsule.hpp"
+#include "model/RectTriangle.hpp"
 #include <QColorDialog>
 
 /* =====  ===== */
@@ -198,6 +199,15 @@ void FlowView::mousePressEvent(QMouseEvent* event)
         dragStart_ = docPos;
         return;
     }
+    if (mode_ == ToolMode::DrawRectTriangle) {
+        auto rectTriangle = std::make_unique<RectTriangle>();
+        rectTriangle->bounds.setTopLeft(docPos);
+        rectTriangle->bounds.setBottomRight(docPos);
+        shapes_.push_back(std::move(rectTriangle));
+        selectedIndex_ = int(shapes_.size()) - 1;
+        dragStart_ = docPos;
+        return;
+    }
 
     /* --- 2. 新建连接线 (起点) --- */
     if (mode_ == ToolMode::DrawConnector && event->button() == Qt::LeftButton) {
@@ -358,7 +368,8 @@ void FlowView::mouseMoveEvent(QMouseEvent* event)
     /* --- 1. 调整矩形大小 --- */
     if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse || mode_ == ToolMode::DrawDiamond || 
          mode_ == ToolMode::DrawTriangle || mode_ == ToolMode::DrawPentagon || mode_ == ToolMode::DrawHexagon || 
-         mode_ == ToolMode::DrawOctagon || mode_ == ToolMode::DrawRoundedRect || mode_ == ToolMode::DrawCapsule) &&
+         mode_ == ToolMode::DrawOctagon || mode_ == ToolMode::DrawRoundedRect || mode_ == ToolMode::DrawCapsule ||
+         mode_ == ToolMode::DrawRectTriangle) &&
         selectedIndex_ != -1 && (event->buttons() & Qt::LeftButton))
     {
         auto& r = shapes_[selectedIndex_]->bounds;
@@ -451,8 +462,12 @@ void FlowView::mouseMoveEvent(QMouseEvent* event)
         }
     }
     
+    // 如果是平移模式，保持OpenHandCursor
+    if (isPanning_) {
+        setCursor(Qt::OpenHandCursor);
+    }
     // 在连接器模式下，如果鼠标悬停在形状上显示相应的光标
-    if (mode_ == ToolMode::DrawConnector) {
+    else if (mode_ == ToolMode::DrawConnector) {
         setCursor(hitAnyShape ? Qt::PointingHandCursor : Qt::CrossCursor);
     } else {
         setCursor(hitAnyShape ? Qt::OpenHandCursor : Qt::ArrowCursor);
@@ -462,6 +477,7 @@ void FlowView::mouseMoveEvent(QMouseEvent* event)
 void FlowView::mouseReleaseEvent(QMouseEvent* event)
 {
     if (isPanning_ && event->button() == Qt::LeftButton) {
+        // 仅改变光标，但不退出平移模式，因为平移模式现在由空格键控制
         setCursor(Qt::OpenHandCursor);
         update();
         return;
@@ -509,7 +525,8 @@ void FlowView::mouseReleaseEvent(QMouseEvent* event)
     /* --- 完成矩形/椭圆绘制 --- */
     if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse || mode_ == ToolMode::DrawDiamond || 
          mode_ == ToolMode::DrawTriangle || mode_ == ToolMode::DrawPentagon || mode_ == ToolMode::DrawHexagon ||
-         mode_ == ToolMode::DrawOctagon || mode_ == ToolMode::DrawRoundedRect || mode_ == ToolMode::DrawCapsule) && 
+         mode_ == ToolMode::DrawOctagon || mode_ == ToolMode::DrawRoundedRect || mode_ == ToolMode::DrawCapsule ||
+         mode_ == ToolMode::DrawRectTriangle) && 
         selectedIndex_ != -1 && event->button() == Qt::LeftButton)
     {
         auto& r = shapes_[selectedIndex_]->bounds;
@@ -617,6 +634,7 @@ void FlowView::dropEvent(QDropEvent* e)
     else if (type == "octagon") s = std::make_unique<Octagon>();
     else if (type == "roundedrect") s = std::make_unique<RoundedRect>();
     else if (type == "capsule") s = std::make_unique<Capsule>();
+    else if (type == "recttriangle") s = std::make_unique<RectTriangle>();
     if (!s) return;
     
     s->bounds = { docPos.x() - 50, docPos.y() - 30, 100, 60 };
@@ -785,6 +803,7 @@ void FlowView::pasteClipboard()
     else if (type == "octagon") s = std::make_unique<Octagon>();
     else if (type == "roundedrect") s = std::make_unique<RoundedRect>();
     else if (type == "capsule") s = std::make_unique<Capsule>();
+    else if (type == "recttriangle") s = std::make_unique<RectTriangle>();
     if (!s) return;
     s->fromJson(obj);
     s->bounds.translate(10, 10);       // ΢ƫ
@@ -1156,6 +1175,8 @@ bool FlowView::loadFromFile(const QString& filename)
                 shape = std::make_unique<RoundedRect>();
             } else if (type == "capsule") {
                 shape = std::make_unique<Capsule>();
+            } else if (type == "recttriangle") {
+                shape = std::make_unique<RectTriangle>();
             }
             
             if (shape) {
@@ -1460,14 +1481,35 @@ void FlowView::keyPressEvent(QKeyEvent* event)
             return;
             
         case Qt::Key_Space:
-            // 空格键是平移模式的开关
-            setCursor(isPanning_ ? Qt::ArrowCursor : Qt::OpenHandCursor);
-            isPanning_ = !isPanning_;
-            event->accept();
-            return;
+            // 空格键按下时激活平移模式
+            if (!isPanning_) {
+                isPanning_ = true;
+                setCursor(Qt::OpenHandCursor);
+                event->accept();
+                return;
+            }
+            break;
     }
     
     QWidget::keyPressEvent(event);
+}
+
+// 键盘释放事件处理
+void FlowView::keyReleaseEvent(QKeyEvent* event)
+{
+    switch (event->key()) {
+        case Qt::Key_Space:
+            // 空格键释放时停止平移模式
+            if (isPanning_) {
+                isPanning_ = false;
+                setCursor(Qt::ArrowCursor);
+                event->accept();
+                return;
+            }
+            break;
+    }
+    
+    QWidget::keyReleaseEvent(event);
 }
 
 // 实现缩放相关方法
@@ -2036,6 +2078,7 @@ void FlowView::undo()
                 else if (type == "octagon") s = std::make_unique<Octagon>();
                 else if (type == "roundedrect") s = std::make_unique<RoundedRect>();
                 else if (type == "capsule") s = std::make_unique<Capsule>();
+                else if (type == "recttriangle") s = std::make_unique<RectTriangle>();
                 
                 if (s) {
                     s->fromJson(record.stateBefore);
@@ -2067,6 +2110,7 @@ void FlowView::undo()
                 else if (type == "octagon") s = std::make_unique<Octagon>();
                 else if (type == "roundedrect") s = std::make_unique<RoundedRect>();
                 else if (type == "capsule") s = std::make_unique<Capsule>();
+                else if (type == "recttriangle") s = std::make_unique<RectTriangle>();
                 
                 if (s) {
                     s->fromJson(record.stateBefore);
@@ -2194,6 +2238,7 @@ void FlowView::redo()
                 else if (type == "octagon") s = std::make_unique<Octagon>();
                 else if (type == "roundedrect") s = std::make_unique<RoundedRect>();
                 else if (type == "capsule") s = std::make_unique<Capsule>();
+                else if (type == "recttriangle") s = std::make_unique<RectTriangle>();
                 
                 if (s) {
                     s->fromJson(record.stateAfter);
@@ -2237,6 +2282,7 @@ void FlowView::redo()
                 else if (type == "octagon") s = std::make_unique<Octagon>();
                 else if (type == "roundedrect") s = std::make_unique<RoundedRect>();
                 else if (type == "capsule") s = std::make_unique<Capsule>();
+                else if (type == "recttriangle") s = std::make_unique<RectTriangle>();
                 
                 if (s) {
                     s->fromJson(record.stateAfter);

@@ -152,6 +152,7 @@ MainWindow::MainWindow(QWidget* parent)
     auto actOctagon = shapesMenu->addAction(tr("Octagon"));
     auto actRoundedRect = shapesMenu->addAction(tr("Rounded Rectangle"));
     auto actCapsule = shapesMenu->addAction(tr("Capsule"));
+    auto actRectTriangle = shapesMenu->addAction(tr("Right Triangle"));
     
     // 设置菜单到按钮
     shapesButton->setMenu(shapesMenu);
@@ -226,6 +227,13 @@ MainWindow::MainWindow(QWidget* parent)
         view->clearSelection();
         qDebug() << "Capsule draw mode activated";
         view->setToolMode(FlowView::ToolMode::DrawCapsule);
+        });
+
+    //带三角形的矩形按钮
+    connect(actRectTriangle, &QAction::triggered, this, [view] {
+        view->clearSelection();
+        qDebug() << "Right Triangle draw mode activated";
+        view->setToolMode(FlowView::ToolMode::DrawRectTriangle);
         });
 
     connect(actLine, &QAction::triggered, this, [view] {
@@ -343,6 +351,13 @@ MainWindow::MainWindow(QWidget* parent)
     itRoundedRect->setSizeHint(QSize(56, 56));
     palette->addItem(itRoundedRect);
 
+    // 矩形+三角形图标
+    auto* itRectTriangle = new QListWidgetItem(QIcon(":/icons/recttriangle.svg"), "");
+    itRectTriangle->setData(Qt::UserRole, "recttriangle");
+    itRectTriangle->setToolTip(tr("Right Triangle"));
+    itRectTriangle->setSizeHint(QSize(56, 56));
+    palette->addItem(itRectTriangle);
+
     // 胶囊形状图标
     auto* itCapsule = new QListWidgetItem(QIcon(":/icons/capsule.svg"), "");
     itCapsule->setData(Qt::UserRole, "capsule");
@@ -406,6 +421,9 @@ MainWindow::MainWindow(QWidget* parent)
             } else if (type == "capsule") {
                 view->clearSelection();
                 view->setToolMode(FlowView::ToolMode::DrawCapsule);
+            } else if (type == "recttriangle") {
+                view->clearSelection();
+                view->setToolMode(FlowView::ToolMode::DrawRectTriangle);
             }
         });
 

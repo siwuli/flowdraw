@@ -23,6 +23,5 @@ file(GLOB_RECURSE CPP_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 file(GLOB_RECURSE HDR_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp")
 file(GLOB_RECURSE QRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/resources/*.qrc")
 
-
 add_executable(${PROJECT_NAME} WIN32 ${CPP_FILES} ${HDR_FILES} ${QRC_FILES})
 target_link_libraries(${PROJECT_NAME} Qt5::Widgets Qt5::Gui Qt5::Core Qt5::Svg)
