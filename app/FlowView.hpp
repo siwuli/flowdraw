@@ -7,6 +7,8 @@
 #include "model/Shape.hpp"
 #include "model/Rect.hpp"
 #include "model/Ellipse.hpp"
+#include "model/RoundedRect.hpp"
+#include "model/Capsule.hpp"
 #include "model/Connector.hpp"     // 所有连接线
 
 // 操作类型枚举
@@ -48,7 +50,7 @@ public:
     explicit FlowView(QWidget* parent = nullptr);
 
     /* ---------- 工具模式 ---------- */
-    enum class ToolMode { None, DrawRect, DrawEllipse, DrawDiamond, DrawConnector, DrawTriangle, DrawPentagon, DrawHexagon, DrawOctagon };
+    enum class ToolMode { None, DrawRect, DrawEllipse, DrawDiamond, DrawConnector, DrawTriangle, DrawPentagon, DrawHexagon, DrawOctagon, DrawRoundedRect, DrawCapsule };
     void setToolMode(ToolMode m);
 
     /* ---------- 文件操作 ---------- */

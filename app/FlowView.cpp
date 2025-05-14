@@ -24,6 +24,8 @@
 #include "model/Pentagon.hpp"
 #include "model/Hexagon.hpp"
 #include "model/Octagon.hpp"
+#include "model/RoundedRect.hpp"
+#include "model/Capsule.hpp"
 #include <QColorDialog>
 
 /* =====  ===== */
@@ -174,6 +176,24 @@ void FlowView::mousePressEvent(QMouseEvent* event)
         octagon->bounds.setTopLeft(docPos);
         octagon->bounds.setBottomRight(docPos);
         shapes_.push_back(std::move(octagon));
+        selectedIndex_ = int(shapes_.size()) - 1;
+        dragStart_ = docPos;
+        return;
+    }
+    if (mode_ == ToolMode::DrawRoundedRect) {
+        auto roundedRect = std::make_unique<RoundedRect>();
+        roundedRect->bounds.setTopLeft(docPos);
+        roundedRect->bounds.setBottomRight(docPos);
+        shapes_.push_back(std::move(roundedRect));
+        selectedIndex_ = int(shapes_.size()) - 1;
+        dragStart_ = docPos;
+        return;
+    }
+    if (mode_ == ToolMode::DrawCapsule) {
+        auto capsule = std::make_unique<Capsule>();
+        capsule->bounds.setTopLeft(docPos);
+        capsule->bounds.setBottomRight(docPos);
+        shapes_.push_back(std::move(capsule));
         selectedIndex_ = int(shapes_.size()) - 1;
         dragStart_ = docPos;
         return;
@@ -338,7 +358,7 @@ void FlowView::mouseMoveEvent(QMouseEvent* event)
     /* --- 1. 调整矩形大小 --- */
     if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse || mode_ == ToolMode::DrawDiamond || 
          mode_ == ToolMode::DrawTriangle || mode_ == ToolMode::DrawPentagon || mode_ == ToolMode::DrawHexagon || 
-         mode_ == ToolMode::DrawOctagon) &&
+         mode_ == ToolMode::DrawOctagon || mode_ == ToolMode::DrawRoundedRect || mode_ == ToolMode::DrawCapsule) &&
         selectedIndex_ != -1 && (event->buttons() & Qt::LeftButton))
     {
         auto& r = shapes_[selectedIndex_]->bounds;
@@ -489,7 +509,7 @@ void FlowView::mouseReleaseEvent(QMouseEvent* event)
     /* --- 完成矩形/椭圆绘制 --- */
     if ((mode_ == ToolMode::DrawRect || mode_ == ToolMode::DrawEllipse || mode_ == ToolMode::DrawDiamond || 
          mode_ == ToolMode::DrawTriangle || mode_ == ToolMode::DrawPentagon || mode_ == ToolMode::DrawHexagon ||
-         mode_ == ToolMode::DrawOctagon) && 
+         mode_ == ToolMode::DrawOctagon || mode_ == ToolMode::DrawRoundedRect || mode_ == ToolMode::DrawCapsule) && 
         selectedIndex_ != -1 && event->button() == Qt::LeftButton)
     {
         auto& r = shapes_[selectedIndex_]->bounds;
@@ -595,6 +615,8 @@ void FlowView::dropEvent(QDropEvent* e)
     else if (type == "pentagon") s = std::make_unique<Pentagon>();
     else if (type == "hexagon") s = std::make_unique<Hexagon>();
     else if (type == "octagon") s = std::make_unique<Octagon>();
+    else if (type == "roundedrect") s = std::make_unique<RoundedRect>();
+    else if (type == "capsule") s = std::make_unique<Capsule>();
     if (!s) return;
     
     s->bounds = { docPos.x() - 50, docPos.y() - 30, 100, 60 };
@@ -761,6 +783,8 @@ void FlowView::pasteClipboard()
     else if (type == "pentagon") s = std::make_unique<Pentagon>();
     else if (type == "hexagon") s = std::make_unique<Hexagon>();
     else if (type == "octagon") s = std::make_unique<Octagon>();
+    else if (type == "roundedrect") s = std::make_unique<RoundedRect>();
+    else if (type == "capsule") s = std::make_unique<Capsule>();
     if (!s) return;
     s->fromJson(obj);
     s->bounds.translate(10, 10);       // ΢ƫ
@@ -1128,6 +1152,10 @@ bool FlowView::loadFromFile(const QString& filename)
                 shape = std::make_unique<Hexagon>();
             } else if (type == "octagon") {
                 shape = std::make_unique<Octagon>();
+            } else if (type == "roundedrect") {
+                shape = std::make_unique<RoundedRect>();
+            } else if (type == "capsule") {
+                shape = std::make_unique<Capsule>();
             }
             
             if (shape) {
@@ -2006,6 +2034,8 @@ void FlowView::undo()
                 else if (type == "pentagon") s = std::make_unique<Pentagon>();
                 else if (type == "hexagon") s = std::make_unique<Hexagon>();
                 else if (type == "octagon") s = std::make_unique<Octagon>();
+                else if (type == "roundedrect") s = std::make_unique<RoundedRect>();
+                else if (type == "capsule") s = std::make_unique<Capsule>();
                 
                 if (s) {
                     s->fromJson(record.stateBefore);
@@ -2035,6 +2065,8 @@ void FlowView::undo()
                 else if (type == "pentagon") s = std::make_unique<Pentagon>();
                 else if (type == "hexagon") s = std::make_unique<Hexagon>();
                 else if (type == "octagon") s = std::make_unique<Octagon>();
+                else if (type == "roundedrect") s = std::make_unique<RoundedRect>();
+                else if (type == "capsule") s = std::make_unique<Capsule>();
                 
                 if (s) {
                     s->fromJson(record.stateBefore);
@@ -2160,6 +2192,8 @@ void FlowView::redo()
                 else if (type == "pentagon") s = std::make_unique<Pentagon>();
                 else if (type == "hexagon") s = std::make_unique<Hexagon>();
                 else if (type == "octagon") s = std::make_unique<Octagon>();
+                else if (type == "roundedrect") s = std::make_unique<RoundedRect>();
+                else if (type == "capsule") s = std::make_unique<Capsule>();
                 
                 if (s) {
                     s->fromJson(record.stateAfter);
@@ -2201,6 +2235,8 @@ void FlowView::redo()
                 else if (type == "pentagon") s = std::make_unique<Pentagon>();
                 else if (type == "hexagon") s = std::make_unique<Hexagon>();
                 else if (type == "octagon") s = std::make_unique<Octagon>();
+                else if (type == "roundedrect") s = std::make_unique<RoundedRect>();
+                else if (type == "capsule") s = std::make_unique<Capsule>();
                 
                 if (s) {
                     s->fromJson(record.stateAfter);

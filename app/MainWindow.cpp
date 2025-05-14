@@ -150,6 +150,7 @@ MainWindow::MainWindow(QWidget* parent)
     auto actPentagon = shapesMenu->addAction(tr("Pentagon"));
     auto actHexagon = shapesMenu->addAction(tr("Hexagon"));
     auto actOctagon = shapesMenu->addAction(tr("Octagon"));
+    auto actRoundedRect = shapesMenu->addAction(tr("Rounded Rectangle"));
     
     // 设置菜单到按钮
     shapesButton->setMenu(shapesMenu);
@@ -210,6 +211,13 @@ MainWindow::MainWindow(QWidget* parent)
         view->clearSelection();
         qDebug() << "Octagon draw mode activated";
         view->setToolMode(FlowView::ToolMode::DrawOctagon);
+        });
+        
+    //圆角矩形按钮
+    connect(actRoundedRect, &QAction::triggered, this, [view] {
+        view->clearSelection();
+        qDebug() << "Rounded Rectangle draw mode activated";
+        view->setToolMode(FlowView::ToolMode::DrawRoundedRect);
         });
 
     connect(actLine, &QAction::triggered, this, [view] {
@@ -312,6 +320,12 @@ MainWindow::MainWindow(QWidget* parent)
     itOctagon->setData(Qt::UserRole, "octagon");
     itOctagon->setToolTip(tr("Octagon"));
     palette->addItem(itOctagon);
+    
+    // 圆角矩形图标
+    auto* itRoundedRect = new QListWidgetItem(QIcon(":/icons/roundedrect.svg"), "");
+    itRoundedRect->setData(Qt::UserRole, "roundedrect");
+    itRoundedRect->setToolTip(tr("Rounded Rectangle"));
+    palette->addItem(itRoundedRect);
 
     // 拖拽实现
     palette->setDefaultDropAction(Qt::CopyAction);
@@ -363,6 +377,9 @@ MainWindow::MainWindow(QWidget* parent)
             } else if (type == "octagon") {
                 view->clearSelection();
                 view->setToolMode(FlowView::ToolMode::DrawOctagon);
+            } else if (type == "roundedrect") {
+                view->clearSelection();
+                view->setToolMode(FlowView::ToolMode::DrawRoundedRect);
             }
         });
 

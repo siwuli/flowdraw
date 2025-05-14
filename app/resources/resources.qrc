@@ -9,5 +9,6 @@
         <file>icons/pentagon.svg</file>
         <file>icons/hexagon.svg</file>
         <file>icons/octagon.svg</file>
+        <file>icons/roundedrect.svg</file>
     </qresource>
 </RCC> 
