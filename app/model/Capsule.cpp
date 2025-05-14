@@ -59,13 +59,22 @@ void Capsule::paint(QPainter& p, bool selected) const
     // 绘制文本
     drawText(p);
 
-    // 如果被选中，绘制虚线框
+    // 如果被选中，绘制虚线框，适应胶囊形状
     if (selected) {
         QPen dashPen(Qt::DashLine);
         dashPen.setColor(Qt::blue);
         p.setPen(dashPen);
         p.setBrush(Qt::NoBrush);
-        p.drawRect(bounds.adjusted(-2, -2, 2, 2));
+        
+        // 使用稍微放大的路径绘制选中框
+        QPainterPath selectionPath = path;
+        QTransform transform;
+        transform.translate(bounds.center().x(), bounds.center().y());
+        transform.scale(1.04, 1.04); // 比实际形状稍大
+        transform.translate(-bounds.center().x(), -bounds.center().y());
+        selectionPath = transform.map(selectionPath);
+        
+        p.drawPath(selectionPath);
     }
 }
 
@@ -149,56 +158,31 @@ QPointF Capsule::getConnectionPoint(const QPointF& ref) const
         qreal rectRight = bounds.right() - radius;
         qreal centerY = bounds.center().y();
         
-        // 检查是否与矩形部分相交
-        if (unitDir.y() != 0) {
-            // 计算与水平边界的交点
-            qreal t;
-            QPointF intersection;
-            qreal y;
-            
-            if (unitDir.y() > 0) {
-                y = bounds.bottom();
+        // 检查方向是否主要是水平的（即指向左右两侧的半圆部分）
+        if (std::abs(unitDir.x()) > std::abs(unitDir.y())) {
+            // 指向半圆部分
+            QPointF circleCenter;
+            if (unitDir.x() >= 0) {
+                circleCenter = QPointF(rectRight, centerY);
             } else {
-                y = bounds.top();
+                circleCenter = QPointF(rectLeft, centerY);
             }
             
-            t = (y - center.y()) / unitDir.y();
-            intersection.setX(center.x() + t * unitDir.x());
-            intersection.setY(y);
+            // 直接计算从圆心发出的射线与圆的交点
+            return circleCenter + radius * QPointF(unitDir.x(), unitDir.y());
+        } else {
+            // 指向矩形部分的上下边缘
+            qreal y = (unitDir.y() > 0) ? bounds.bottom() : bounds.top();
             
-            // 检查交点是否在矩形部分
-            if (intersection.x() >= rectLeft && intersection.x() <= rectRight) {
-                return intersection;
-            }
+            // 计算x坐标，确保在矩形部分内
+            qreal t = (y - center.y()) / unitDir.y();
+            qreal x = center.x() + t * unitDir.x();
+            
+            // 限制x在矩形部分内
+            x = qMax(rectLeft, qMin(rectRight, x));
+            
+            return QPointF(x, y);
         }
-        
-        // 检查是否与半圆部分相交
-        QPointF circleCenter;
-        if (unitDir.x() >= 0) {
-            circleCenter = QPointF(rectRight, centerY);
-        } else {
-            circleCenter = QPointF(rectLeft, centerY);
-        }
-        
-        // 计算从圆心到交点的向量
-        QPointF toCircle = circleCenter - center;
-        qreal distToCircle = QLineF(center, circleCenter).length();
-        qreal dotProduct = toCircle.x() * unitDir.x() + toCircle.y() * unitDir.y();
-        
-        // 计算圆上的交点
-        qreal projLength;
-        
-        if (distToCircle < 1e-6) {
-            // 极少见的情况：圆心与胶囊中心重合
-            projLength = radius;
-        } else {
-            projLength = dotProduct / distToCircle;
-        }
-        
-        QPointF closestPoint = circleCenter - projLength * (toCircle / distToCircle);
-        QPointF pointOnCircle = circleCenter + radius * ((closestPoint - circleCenter) / QLineF(closestPoint, circleCenter).length());
-        
-        return pointOnCircle;
     } else {
         // 垂直胶囊 - 上下两端为半圆
         qreal diameter = w; // 半圆的直径等于宽度
@@ -209,56 +193,31 @@ QPointF Capsule::getConnectionPoint(const QPointF& ref) const
         qreal rectBottom = bounds.bottom() - radius;
         qreal centerX = bounds.center().x();
         
-        // 检查是否与矩形部分相交
-        if (unitDir.x() != 0) {
-            // 计算与垂直边界的交点
-            qreal t;
-            QPointF intersection;
-            qreal x;
-            
-            if (unitDir.x() > 0) {
-                x = bounds.right();
+        // 检查方向是否主要是垂直的（即指向上下两侧的半圆部分）
+        if (std::abs(unitDir.y()) > std::abs(unitDir.x())) {
+            // 指向半圆部分
+            QPointF circleCenter;
+            if (unitDir.y() >= 0) {
+                circleCenter = QPointF(centerX, rectBottom);
             } else {
-                x = bounds.left();
+                circleCenter = QPointF(centerX, rectTop);
             }
             
-            t = (x - center.x()) / unitDir.x();
-            intersection.setX(x);
-            intersection.setY(center.y() + t * unitDir.y());
+            // 直接计算从圆心发出的射线与圆的交点
+            return circleCenter + radius * QPointF(unitDir.x(), unitDir.y());
+        } else {
+            // 指向矩形部分的左右边缘
+            qreal x = (unitDir.x() > 0) ? bounds.right() : bounds.left();
             
-            // 检查交点是否在矩形部分
-            if (intersection.y() >= rectTop && intersection.y() <= rectBottom) {
-                return intersection;
-            }
+            // 计算y坐标，确保在矩形部分内
+            qreal t = (x - center.x()) / unitDir.x();
+            qreal y = center.y() + t * unitDir.y();
+            
+            // 限制y在矩形部分内
+            y = qMax(rectTop, qMin(rectBottom, y));
+            
+            return QPointF(x, y);
         }
-        
-        // 检查是否与半圆部分相交
-        QPointF circleCenter;
-        if (unitDir.y() >= 0) {
-            circleCenter = QPointF(centerX, rectBottom);
-        } else {
-            circleCenter = QPointF(centerX, rectTop);
-        }
-        
-        // 计算从圆心到交点的向量
-        QPointF toCircle = circleCenter - center;
-        qreal distToCircle = QLineF(center, circleCenter).length();
-        qreal dotProduct = toCircle.x() * unitDir.x() + toCircle.y() * unitDir.y();
-        
-        // 计算圆上的交点
-        qreal projLength;
-        
-        if (distToCircle < 1e-6) {
-            // 极少见的情况：圆心与胶囊中心重合
-            projLength = radius;
-        } else {
-            projLength = dotProduct / distToCircle;
-        }
-        
-        QPointF closestPoint = circleCenter - projLength * (toCircle / distToCircle);
-        QPointF pointOnCircle = circleCenter + radius * ((closestPoint - circleCenter) / QLineF(closestPoint, circleCenter).length());
-        
-        return pointOnCircle;
     }
 }
 

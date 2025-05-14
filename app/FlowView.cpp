@@ -282,20 +282,20 @@ void FlowView::mousePressEvent(QMouseEvent* event)
     selectedIndex_ = -1;
     selectedConnectorIndex_ = -1;
     
-    // 首先尝试选择连接线
-    selectedConnectorIndex_ = hitTestConnector(docPos);
-    
-    // 如果没有选中连接线，再尝试选择图形
-    if (selectedConnectorIndex_ == -1) {
-        for (int i = shapes_.size() - 1; i >= 0; --i) {
-            if (shapes_[i]->hitTest(docPos)) {
-                selectedIndex_ = i;
-                dragStart_ = docPos;
-                // 保存移动前的状态
-                lastShapeState_ = shapes_[i]->toJson();
-                break;
-            }
+    // 优先检查图形，然后才是连接线，反转原来的选择顺序
+    for (int i = shapes_.size() - 1; i >= 0; --i) {
+        if (shapes_[i]->hitTest(docPos)) {
+            selectedIndex_ = i;
+            dragStart_ = docPos;
+            // 保存移动前的状态
+            lastShapeState_ = shapes_[i]->toJson();
+            break;
         }
+    }
+    
+    // 如果没有选中图形，再尝试选择连接线
+    if (selectedIndex_ == -1) {
+        selectedConnectorIndex_ = hitTestConnector(docPos);
     }
     
     if (selectedIndex_ != -1) {
